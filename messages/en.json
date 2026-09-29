@@ -1,0 +1,33 @@
+{
+  "Map": {
+    "title": "IRAN GAME",
+    "beta": "Beta version"
+  },
+  "World": {
+    "selectCell": "Select a land cell",
+    "gameCell": "Game Cell",
+    "status": "Status",
+    "available": "Available",
+    "claimed": "Claimed",
+    "claim": "Claim this land",
+    "alreadyClaimed": "This cell has already been claimed."
+  },
+  "Player": {
+    "location": "Player Location",
+    "gettingLocation": "Getting your location...",
+    "locationActive": "Location is active",
+    "accuracy": "GPS accuracy",
+    "refreshLocation": "Refresh location",
+    "loading": "Loading...",
+    "permissionHint": "Location permission is required to use the game.",
+    "errorNoGeolocation": "Your browser does not support geolocation.",
+    "errorPermissionDenied": "Location permission was denied.",
+    "errorPositionUnavailable": "Location is unavailable.",
+    "errorTimeout": "Request for location timed out.",
+    "errorUnknown": "An error occurred while getting location."
+  },
+  "Language": {
+    "fa": "فارسی",
+    "en": "English"
+  }
+}

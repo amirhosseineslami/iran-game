@@ -1,0 +1,33 @@
+{
+  "Map": {
+    "title": "IRAN GAME",
+    "beta": "نسخه آزمایشی"
+  },
+  "World": {
+    "selectCell": "یک قطعه زمین را انتخاب کن",
+    "gameCell": "قطعه بازی",
+    "status": "وضعیت",
+    "available": "قابل تصاحب",
+    "claimed": "تصاحب شده",
+    "claim": "تصاحب این زمین",
+    "alreadyClaimed": "این قطعه قبلاً تصاحب شده است."
+  },
+  "Player": {
+    "location": "موقعیت بازیکن",
+    "gettingLocation": "در حال دریافت موقعیت...",
+    "locationActive": "موقعیت مکانی فعال است",
+    "accuracy": "دقت GPS",
+    "refreshLocation": "به‌روزرسانی موقعیت",
+    "loading": "در حال دریافت...",
+    "permissionHint": "برای استفاده از بازی باید اجازه دسترسی به موقعیت مکانی را بدهید.",
+    "errorNoGeolocation": "مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند.",
+    "errorPermissionDenied": "اجازه دسترسی به موقعیت مکانی داده نشد.",
+    "errorPositionUnavailable": "موقعیت مکانی در دسترس نیست.",
+    "errorTimeout": "دریافت موقعیت مکانی زمان زیادی طول کشید.",
+    "errorUnknown": "خطایی در دریافت موقعیت مکانی رخ داد."
+  },
+  "Language": {
+    "fa": "فارسی",
+    "en": "English"
+  }
+}
