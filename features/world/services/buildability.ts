@@ -1,16 +1,15 @@
-export interface GameCell {
-  id: string;
-  row: number;
-  col: number;
-  status: "available" | "claimed" | "under_construction";
-  ownerId: string | null;
-  polygon: [number, number][][];
-}
+import type { GameCell } from "../types/gameCell";
 
-export function validateBuild(cell: GameCell, playerId: string, neighbors: GameCell[]): {
+export interface BuildValidationResult {
   valid: boolean;
   reason?: "not_owned" | "already_built" | "too_close_to_own" | "too_close_to_enemy";
-} {
+}
+
+export function validateBuild(
+  cell: GameCell,
+  playerId: string,
+  neighbors: GameCell[]
+): BuildValidationResult {
   if (cell.ownerId !== playerId) {
     return { valid: false, reason: "not_owned" };
   }
@@ -20,7 +19,10 @@ export function validateBuild(cell: GameCell, playerId: string, neighbors: GameC
   }
 
   const hasOwnNeighbor = neighbors.some(
-    n => n.ownerId === playerId && Math.abs(n.row - cell.row) <= 1 && Math.abs(n.col - cell.col) <= 1
+    (n) =>
+      n.ownerId === playerId &&
+      Math.abs(n.row - cell.row) <= 1 &&
+      Math.abs(n.col - cell.col) <= 1
   );
 
   if (hasOwnNeighbor) {
@@ -28,12 +30,16 @@ export function validateBuild(cell: GameCell, playerId: string, neighbors: GameC
   }
 
   const hasEnemyNeighbor = neighbors.some(
-    n => n.ownerId !== null && n.ownerId !== playerId && Math.abs(n.row - cell.row) <= 2 && Math.abs(n.col - cell.col) <= 2
+    (n) =>
+      n.ownerId !== null &&
+      n.ownerId !== playerId &&
+      Math.abs(n.row - cell.row) <= 2 &&
+      Math.abs(n.col - cell.col) <= 2
   );
 
   if (hasEnemyNeighbor) {
     return { valid: false, reason: "too_close_to_enemy" };
   }
 
-  return { valid: true, reason: "valid" };
+  return { valid: true };
 }

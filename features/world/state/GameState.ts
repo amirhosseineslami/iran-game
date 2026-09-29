@@ -42,9 +42,10 @@ export class GameWorld {
   ): GameCell[] {
     if (!this.state) return [];
 
-    return this.state.cells.filter((other) =>
-      Math.abs(other.row - cell.row) <= radius &&
-      Math.abs(other.col - cell.col) <= radius
+    return this.state.cells.filter(
+      (other) =>
+        Math.abs(other.row - cell.row) <= radius &&
+        Math.abs(other.col - cell.col) <= radius
     );
   }
 
