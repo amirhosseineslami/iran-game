@@ -1,43 +1,43 @@
 import type { GameEvent } from "./types";
 import type { LocationEventData, CellClaimEventData, GameStateSnapshotData } from "./types";
 
-interface EventListener<T = unknown> {
-  callback: (event: T) => void;
-  unsubscribe: () => void;
+interface Listener {
+  id: string;
+  callback: (event: unknown) => void;
 }
 
 export class EventBus {
-  private listeners: Map<string, Set<(event: unknown) => void>> = new Map();
+  private listeners: Map<string, Set<Listener>> = new Map();
+  private nextId = 0;
 
-  subscribe<T extends GameEvent>(type: T["type"]): EventListener<T> {
+  subscribe(type: string): { addListener: (handler: (event: unknown) => void) => void; removeListener: () => void } {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
 
     const set = this.listeners.get(type)!;
-    const callback = (event: unknown) => {
-      set.forEach((fn) => fn(event));
-    };
-
-    set.add(callback);
-
-    const unsubscribe = () => {
-      set.delete(callback);
-      if (set.size === 0) {
-        this.listeners.delete(type);
-      }
-    };
+    const id = `listener-${++this.nextId}`;
 
     return {
-      callback: callback as (event: T) => void,
-      unsubscribe,
+      addListener: (handler: (event: unknown) => void) => {
+        set.add({ id, callback: handler });
+      },
+      removeListener: () => {
+        const item = Array.from(set).find((l) => l.id === id);
+        if (item) {
+          set.delete(item);
+        }
+        if (set.size === 0) {
+          this.listeners.delete(type);
+        }
+      },
     };
   }
 
-  emit(event: GameEvent): void {
+  emit<T extends GameEvent>(event: T): void {
     const set = this.listeners.get(event.type);
     if (set) {
-      set.forEach((fn) => fn(event));
+      set.forEach((fn) => fn.callback(event));
     }
   }
 

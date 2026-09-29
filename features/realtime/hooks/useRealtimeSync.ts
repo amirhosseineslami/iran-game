@@ -58,17 +58,17 @@ export function useRealtimeSync(
     <T extends GameEvent>(eventType: T["type"], callback: (event: T) => void) => {
       const subscription = eventBus.subscribe(eventType);
 
-      const originalCallback = subscription.callback;
-      subscription.callback = ((event: unknown) => {
+      const originalCallback = ((event: unknown) => {
         const typedEvent = event as T;
         if (typedEvent.playerId !== playerId && typedEvent.sessionId !== sessionId) {
           return;
         }
         callback(typedEvent);
-        originalCallback(typedEvent);
-      }) as (event: T) => void;
+      }) as (event: unknown) => void;
 
-      return subscription.unsubscribe;
+      subscription.addListener(originalCallback);
+
+      return subscription.removeListener;
     },
     [playerId, sessionId],
   );
