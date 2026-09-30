@@ -1,32 +1,56 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { GameCell } from "@/features/world/types/gameCell";
 
 const DEMO_PLAYER_ID = "player-demo-001";
 
-interface GameState {
+export interface GameContextType {
   cells: GameCell[];
   selectedCellId: string | null;
+  selectedCell: GameCell | null;
   loading: boolean;
   claiming: boolean;
   claimError: string | null;
   ownedCount: number;
   stats: { total: number; claimed: number; available: number };
-}
-
-interface GameActions {
   selectCell: (cellId: string) => void;
   claimCell: () => Promise<void>;
   confirmClaim: (cellId: string) => Promise<void>;
   clearError: () => void;
 }
 
-export interface GameContextType extends GameState, GameActions {
-  selectedCell: GameCell | null;
-}
+const GameContext = React.createContext<GameContextType | null>(null);
 
-const GameContext = createContext<GameContextType | null>(null);
+function generateDemoCells(): GameCell[] {
+  const result: GameCell[] = [];
+  const tileSize = 0.001;
+  const centerLat = 35.6892; // Tehran
+  const centerLng = 51.3890;
+  const gridSize = 20;
+
+  for (let row = -gridSize; row <= gridSize; row++) {
+    for (let col = -gridSize; col <= gridSize; col++) {
+      const lat = centerLat + row * tileSize;
+      const lng = centerLng + col * tileSize;
+      result.push({
+        id: `${row}_${col}`,
+        row,
+        col,
+        status: "available",
+        ownerId: null,
+        polygon: [[
+          [lng, lat],
+          [lng + tileSize, lat],
+          [lng + tileSize, lat + tileSize],
+          [lng, lat + tileSize],
+          [lng, lat],
+        ]],
+      });
+    }
+  }
+  return result;
+}
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [cells, setCells] = useState<GameCell[]>([]);
@@ -42,7 +66,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Load initial game data
-  React.useEffect(() => {
+  useEffect(() => {
     async function load() {
       try {
         const res = await fetch("/api/claims");
@@ -83,40 +107,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Update owned count
-  React.useEffect(() => {
+  useEffect(() => {
     const count = cells.filter(c => c.ownerId === DEMO_PLAYER_ID).length;
     setOwnedCount(count);
   }, [cells]);
-
-  const generateDemoCells = (): GameCell[] => {
-    const result: GameCell[] = [];
-    const tileSize = 0.001;
-    const centerLat = 35.6892; // Tehran
-    const centerLng = 51.3890;
-    const gridSize = 20;
-
-    for (let row = -gridSize; row <= gridSize; row++) {
-      for (let col = -gridSize; col <= gridSize; col++) {
-        const lat = centerLat + row * tileSize;
-        const lng = centerLng + col * tileSize;
-        result.push({
-          id: `${row}_${col}`,
-          row,
-          col,
-          status: "available",
-          ownerId: null,
-          polygon: [[
-            [lng, lat],
-            [lng + tileSize, lat],
-            [lng + tileSize, lat + tileSize],
-            [lng, lat + tileSize],
-            [lng, lat],
-          ]],
-        });
-      }
-    }
-    return result;
-  };
 
   const selectCell = useCallback((cellId: string) => {
     setSelectedCellId(prev => prev === cellId ? null : cellId);
@@ -194,11 +188,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setClaimError(null);
   }, []);
 
+  const selectedCell = cells.find(c => c.id === selectedCellId) ?? null;
+
   return (
     <GameContext.Provider value={{
       cells,
       selectedCellId,
-      selectedCell: cells.find(c => c.id === selectedCellId) ?? null,
+      selectedCell,
       loading,
       claiming,
       claimError,
@@ -215,7 +211,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useGame() {
-  const ctx = useContext(GameContext);
+  const ctx = React.useContext(GameContext);
   if (!ctx) throw new Error("useGame must be used within GameProvider");
   return ctx;
 }

@@ -35,10 +35,10 @@ export default function CellBottomSheet({
     );
   }
 
-  const isOwner = cell.ownerId !== null;
   const isAvailable = cell.status === "available";
   const isPending = cell.status === "pending_claim";
   const isClaimed = cell.status === "claimed";
+  const isOwner = cell.ownerId !== null;
 
   return (
     <div className="absolute bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 z-20">
@@ -76,9 +76,9 @@ export default function CellBottomSheet({
         </div>
 
         {/* Owner info */}
-        {cell.ownerId && (
+        {isOwner && (
           <div className="mb-3 text-xs text-gray-400">
-            {t("owner")}: <span className="font-mono">{cell.ownerId.slice(0, 8)}...</span>
+            {t("owner")}: <span className="font-mono">{cell.ownerId!.slice(0, 8)}...</span>
           </div>
         )}
 

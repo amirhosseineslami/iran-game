@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { useTranslations } from "next-intl";
+import React, { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { GameProvider, useGame } from "@/features/game/context/GameContext";
 import GameMap from "@/features/map/components/GameMap";
 import CellRenderer from "@/features/game/components/CellRenderer";
@@ -13,7 +13,7 @@ import LocationControl from "@/features/player/components/LocationControl";
 function GameplayUI() {
   const t = useTranslations("Game");
   const locale = typeof window !== 'undefined' ? document.documentElement.lang : 'en';
-  const [lang, setLang] = React.useState(locale);
+  const [lang, setLang] = useState(locale);
   
   const {
     cells,
