@@ -1,10 +1,10 @@
 {
   "Map": {
-    "title": "IRAN GAME",
+    "title": "بازی ایران",
     "beta": "نسخه آزمایشی"
   },
   "World": {
-    "selectCell": "یک قطعه زمین را انتخاب کن",
+    "selectCell": "یک قطعه زمین را انتخاب کنید",
     "gameCell": "قطعه بازی",
     "status": "وضعیت",
     "available": "قابل تصاحب",
@@ -29,5 +29,30 @@
   "Language": {
     "fa": "فارسی",
     "en": "English"
+  },
+  "Game": {
+    "title": "بازی ایران",
+    "beta": "نسخه آزمایشی",
+    "selectCellHint": "روی یک قطعه زمین کلیک کنید",
+    "gameCell": "قطعه بازی",
+    "status": "وضعیت",
+    "available": "قابل تصاحب",
+    "pending": "در انتظار تایید",
+    "owned": "تصاحب شده",
+    "owner": "مالک",
+    "claim": "تصاحب قلمرو",
+    "claiming": "در حال تصاحب...",
+    "confirmClaim": "تایید تصاحب",
+    "ownedByYou": "قلمرو شما",
+    "ownedCount": "قلمروها",
+    "totalCells": "کل قطعات",
+    "language": "English",
+    "total": "کل قطعات",
+    "claim_success": "قلمرو تصاحب شد!",
+    "claim_failed": "خطا در تصاحب قلمرو",
+    "claim_already_owned": "این قلمرو قبلاً تصاحب شده است",
+    "claim_network_error": "خطای شبکه. دوباره تلاش کنید.",
+    "confirm_network_error": "خطای شبکه. دوباره تلاش کنید.",
+    "permission_hint": "موقعیت مکانی را برای تجربه بهتر فعال کنید"
   }
 }

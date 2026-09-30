@@ -1,7 +1,7 @@
 {
   "Map": {
     "title": "IRAN GAME",
-    "beta": "Beta version"
+    "beta": "نسخه آزمایشی"
   },
   "World": {
     "selectCell": "Select a land cell",
@@ -29,5 +29,29 @@
   "Language": {
     "fa": "فارسی",
     "en": "English"
+  },
+  "Game": {
+    "title": "IRAN GAME",
+    "beta": "Beta",
+    "selectCellHint": "Tap a territory to explore",
+    "gameCell": "Game Cell",
+    "status": "Status",
+    "available": "Available",
+    "pending": "Pending",
+    "owned": "Owned",
+    "owner": "Owner",
+    "claim": "Claim Territory",
+    "claiming": "Claiming...",
+    "confirmClaim": "Confirm Claim",
+    "ownedByYou": "Your Territory",
+    "ownedCount": "Territories",
+    "totalCells": "Total Cells",
+    "language": "فارسی",
+    "claim_success": "Territory claimed!",
+    "claim_failed": "Failed to claim territory",
+    "claim_already_owned": "This territory is already claimed",
+    "claim_network_error": "Network error. Try again.",
+    "confirm_network_error": "Network error. Try again.",
+    "permission_hint": "Enable location for enhanced gameplay"
   }
 }
