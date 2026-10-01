@@ -14,7 +14,7 @@ import {
 } from "../../map/context/MapContext";
 
 import {
-  generateBuildableCells,
+  generateDeterministicCells,
 } from "../services/generateBuildableCells";
 
 import {
@@ -46,11 +46,7 @@ export default function BuildableGrid() {
   const [cells, setCells] =
     useState<GameCell[]>(
       () =>
-        generateBuildableCells(
-          9,
-          9,
-          0.003
-        )
+        generateDeterministicCells()
     );
 
   const [

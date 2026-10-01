@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { PlayerLocation } from "../types/playerLocation";
-import {
-  getFilteredPosition,
-  applyHysteresis,
-} from "../services/locationQuality";
+import { getFilteredPosition, applyHysteresis } from "../services/locationQuality";
 
 interface UsePlayerLocationResult {
   location: PlayerLocation | null;
@@ -34,6 +31,7 @@ export function usePlayerLocation(): UsePlayerLocationResult {
   const watchIdRef = useRef<number | null>(null);
   const lastPositionRef = useRef<{ lat: number; lng: number } | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const startedRef = useRef(false);
 
   const clearWatch = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -56,6 +54,7 @@ export function usePlayerLocation(): UsePlayerLocationResult {
     setLoading(true);
     setError(null);
     setPermissionDenied(false);
+    startedRef.current = true;
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
@@ -100,8 +99,8 @@ export function usePlayerLocation(): UsePlayerLocationResult {
     );
 
     timeoutRef.current = window.setTimeout(() => {
-      setLoading(false);
-      if (!location) {
+      if (startedRef.current && !location) {
+        setLoading(false);
         setError(t("errorTimeout"));
       }
     }, 10000);
@@ -109,13 +108,15 @@ export function usePlayerLocation(): UsePlayerLocationResult {
 
   const refresh = useCallback(() => {
     clearWatch();
+    startedRef.current = false;
     startWatching();
   }, [clearWatch, startWatching]);
 
+  // Start watching after a short delay to avoid blocking render
   useEffect(() => {
     const timer = setTimeout(() => {
       startWatching();
-    }, 0);
+    }, 100);
     return () => {
       clearTimeout(timer);
       clearWatch();

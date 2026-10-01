@@ -1,11 +1,12 @@
-import React from "react";
 import * as maplibregl from "maplibre-gl";
 import type { GameCell } from "@/features/world/types/gameCell";
+import { useRef, useEffect } from "react";
 
 const SOURCE_ID = "game-cells";
 const FILL_LAYER_ID = "game-cells-fill";
 const OUTLINE_LAYER_ID = "game-cells-outline";
 const SELECTED_LAYER_ID = "game-cells-selected";
+const CLICKABLE_LAYER_ID = "game-cells-click";
 
 export interface CellLayerOptions {
   map: maplibregl.Map | null;
@@ -14,19 +15,41 @@ export interface CellLayerOptions {
   onCellClick: (cellId: string) => void;
 }
 
+// Convert LngLat to GeoJSON-compatible coordinates
+function polygonToGeoJSONCoords(polygon: [number, number][][]): number[][][] {
+  return polygon.map(ring => ring.map(([lng, lat]): [number, number] => [lng, lat]));
+}
+
+function cellsToGeoJSON(cells: GameCell[]): object {
+  return {
+    type: "FeatureCollection",
+    features: cells.map((cell) => ({
+      type: "Feature" as const,
+      id: cell.id,
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: polygonToGeoJSONCoords(cell.polygon),
+      },
+      properties: {
+        cellId: cell.id,
+        status: cell.status,
+        ownerId: cell.ownerId ?? null,
+      },
+    })),
+  };
+}
+
 export function useCellLayer(opts: CellLayerOptions) {
   const { map, cells, selectedCellId, onCellClick } = opts;
 
-  const cellsRef = React.useRef(cells);
-  cellsRef.current = cells;
+  // Stable callback refs — updated in useEffect only
+  const clickHandlerRef = useRef(onCellClick);
 
-  const selectedRef = React.useRef(selectedCellId);
-  selectedRef.current = selectedCellId;
+  useEffect(() => {
+    clickHandlerRef.current = onCellClick;
+  }, [onCellClick]);
 
-  const clickHandlerRef = React.useRef(onCellClick);
-  clickHandlerRef.current = onCellClick;
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!map) return;
 
     const addLayers = () => {
@@ -34,34 +57,51 @@ export function useCellLayer(opts: CellLayerOptions) {
 
       map.addSource(SOURCE_ID, {
         type: "geojson",
-        data: cellsToGeoJSON(cells),
+        data: cellsToGeoJSON(cells) as unknown as string,
       });
 
+      // Fill layer — color by status
       map.addLayer({
         id: FILL_LAYER_ID,
         type: "fill",
         source: SOURCE_ID,
         paint: {
-          "fill-color": ["case",
-            ["==", ["get", "status"], "claimed"], "#f59e0b",
-            ["==", ["get", "status"], "pending_claim"], "#3b82f6",
+          "fill-color": [
+            "case",
+            ["==", ["get", "status"], "claimed"],
+            "#f59e0b",
+            ["==", ["get", "status"], "pending_claim"],
+            "#3b82f6",
             "#22c55e",
           ],
-          "fill-opacity": 0.25,
+          "fill-opacity": 0.3,
         },
       });
 
+      // Outline layer
       map.addLayer({
         id: OUTLINE_LAYER_ID,
         type: "line",
         source: SOURCE_ID,
         paint: {
-          "line-color": "#ffffff",
+          "line-color": "rgba(255,255,255,0.6)",
           "line-width": 1,
           "line-opacity": 0.5,
         },
       });
 
+      // Click target layer — invisible but interactive
+      map.addLayer({
+        id: CLICKABLE_LAYER_ID,
+        type: "line",
+        source: SOURCE_ID,
+        paint: {
+          "line-color": "transparent",
+          "line-width": 5,
+        },
+      });
+
+      // Selected highlight layer
       map.addLayer({
         id: SELECTED_LAYER_ID,
         type: "line",
@@ -81,8 +121,8 @@ export function useCellLayer(opts: CellLayerOptions) {
       map.once("load", addLayers);
     }
 
-    const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
-      const feature = e.features?.[0];
+    const handleClick = (_e: maplibregl.MapLayerMouseEvent) => {
+      const feature = _e.features?.[0];
       if (feature) {
         const cellId = String(feature.properties?.cellId ?? "");
         if (cellId) {
@@ -91,60 +131,29 @@ export function useCellLayer(opts: CellLayerOptions) {
       }
     };
 
-    // MapLibre v6 uses on('click') with layer name
-    map.on("click", FILL_LAYER_ID, handleClick);
-    
-    // Cursor change on hover
-    map.getCanvas().addEventListener("mousedown", () => {
-      map.getCanvas().style.cursor = "grabbing";
-    });
-    map.getCanvas().addEventListener("mouseup", () => {
-      map.getCanvas().style.cursor = "";
-    });
+    map.on("click", CLICKABLE_LAYER_ID, handleClick);
 
     return () => {
-      map.off("click", FILL_LAYER_ID, handleClick);
+      map.off("click", CLICKABLE_LAYER_ID, handleClick);
       map.off("load", addLayers);
-      
-      // Clean up canvas event listeners
-      const canvas = map.getCanvas();
-      canvas.removeEventListener("mousedown", () => {});
-      canvas.removeEventListener("mouseup", () => {});
     };
   }, [map]);
 
-  // Update data when cells change
-  React.useEffect(() => {
+  // Update source data when cells change
+  useEffect(() => {
     if (!map) return;
-    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (source) {
-      source.setData(cellsToGeoJSON(cells));
+      source.setData(cellsToGeoJSON(cells) as unknown as string);
     }
   }, [map, cells]);
 
-  // Update selected highlight
-  React.useEffect(() => {
+  // Update selection filter
+  useEffect(() => {
     if (!map) return;
     const layer = map.getLayer(SELECTED_LAYER_ID);
     if (layer) {
       map.setFilter(SELECTED_LAYER_ID, ["==", "id", selectedCellId ?? ""]);
     }
   }, [map, selectedCellId]);
-}
-
-function cellsToGeoJSON(cells: GameCell[]) {
-  const features = cells.map(cell => ({
-    type: "Feature" as const,
-    id: cell.id,
-    geometry: {
-      type: "Polygon" as const,
-      coordinates: cell.polygon,
-    },
-    properties: {
-      cellId: cell.id,
-      status: cell.status,
-      ownerId: cell.ownerId,
-    },
-  }));
-  return { type: "FeatureCollection" as const, features };
 }

@@ -1,95 +1,62 @@
 "use client";
 
-import React, { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
-import { GameProvider, useGame } from "@/features/game/context/GameContext";
+import { useEffect } from "react";
+import { useTranslations } from "next-intl";
+import { useGame } from "@/features/game/context/GameContext";
 import GameMap from "@/features/map/components/GameMap";
-import CellRenderer from "@/features/game/components/CellRenderer";
 import CellBottomSheet from "@/features/game/components/CellBottomSheet";
 import GameHUD from "@/features/game/components/GameHUD";
 import PlayerLayer from "@/features/player/components/PlayerLayer";
 import LocationControl from "@/features/player/components/LocationControl";
+import LanguageSwitcher from "@/features/i18n/components/LanguageSwitcher";
 
-function GameplayUI() {
+export default function Page() {
   const t = useTranslations("Game");
-  const locale = typeof window !== 'undefined' ? document.documentElement.lang : 'en';
-  const [lang, setLang] = useState(locale);
-  
-  const {
-    cells,
-    selectedCellId,
-    selectedCell,
-    loading,
-    claiming,
-    claimError,
-    ownedCount,
-    stats,
-    selectCell,
-    claimCell,
-    confirmClaim,
-  } = useGame();
+  const { cells, selectedCellId, selectedCell, loading, claiming, claimError, ownedCount, stats, selectCell, claimCell, initPlayer, playerLocation } = useGame();
 
-  const handleLangChange = (newLang: "en" | "fa") => {
-    setLang(newLang);
-    document.documentElement.dir = newLang === "fa" ? "rtl" : "ltr";
-    document.documentElement.lang = newLang;
+  useEffect(() => {
+    initPlayer();
+  }, [initPlayer]);
+
+  const handleCellClick = (cellId: string) => {
+    selectCell(selectedCellId === cellId ? null : cellId);
+  };
+
+  const handleClaim = (cellId: string) => {
+    claimCell(cellId);
   };
 
   return (
-    <>
-      {/* HUD - top left */}
-      <GameHUD
-        title={t("title")}
-        ownedCount={ownedCount}
-        totalCells={stats.total}
-        lang={lang}
-        onLangChange={handleLangChange}
+    <div className="h-screen w-screen overflow-hidden relative">
+      <GameMap
+        cells={cells}
+        selectedCellId={selectedCellId}
+        playerLocation={playerLocation}
+        onCellClick={handleCellClick}
       />
-
-      {/* Map and layers */}
-      <div className="absolute inset-0 z-0">
-        <GameMap>
-          <CellRenderer
-            cells={cells}
-            selectedCellId={selectedCellId}
-            onCellClick={selectCell}
-          />
-          <PlayerLayer />
-        </GameMap>
-      </div>
-
-      {/* Location control - top right */}
-      <div className="absolute right-4 top-4 z-20">
-        <LocationControl />
-      </div>
-
-      {/* Bottom sheet for cell details */}
+      <GameHUD />
+      <PlayerLayer />
+      <LocationControl />
+      <LanguageSwitcher />
       <CellBottomSheet
         cell={selectedCell}
         ownedCount={ownedCount}
         claiming={claiming}
         claimError={claimError}
-        onClaim={claimCell}
-        onConfirm={confirmClaim}
-        onClose={() => selectCell(selectedCellId ?? "")}
+        onClaim={handleClaim}
+        onClose={() => selectCell(null)}
       />
-
-      {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-30 pointer-events-none">
-          <div className="text-white text-lg font-bold">{t("claiming") || "Loading..."}</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30">
+          <div className="flex flex-col items-center gap-3">
+            <svg className="h-8 w-8 animate-spin text-amber-400" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+            <span className="text-white text-sm font-medium">{t("loading") || "Loading..."}</span>
+          </div>
         </div>
       )}
-    </>
-  );
-}
-
-export default function Page() {
-  return (
-    <div className="h-screen w-screen overflow-hidden">
-      <GameProvider>
-        <GameplayUI />
-      </GameProvider>
     </div>
   );
 }

@@ -1,175 +1,67 @@
-import { useState, useEffect, useCallback } from "react";
-import type { GameCell } from "@/features/world/types/gameCell";
+"use client";
 
-const DEMO_PLAYER_ID = "player-demo-001";
-const CELLS_PER_REQUEST = 100;
+import { useEffect, useCallback } from "react";
+import { useGameStore } from "@/features/game/context/GameContext";
 
-interface GameOptions {
-  centerLat: number;
-  centerLng: number;
-  gridSize: number;
-  tileSize: number;
+interface PlayerLocation {
+  latitude: number;
+  longitude: number;
 }
 
-export function useGameState(opts?: Partial<GameOptions>) {
-  const [cells, setCells] = useState<GameCell[]>([]);
-  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
-  const [claimError, setClaimError] = useState<string | null>(null);
-  const [ownedCount, setOwnedCount] = useState(0);
-  const [stats, setStats] = useState<{ total: number; claimed: number; available: number }>({ total: 0, claimed: 0, available: 0 });
+export function useGameState() {
+  const cells = useGameStore((s) => s.cells);
+  const playerId = useGameStore((s) => s.playerId);
+  const selectedCellId = useGameStore((s) => s.selectedCellId);
+  const loading = useGameStore((s) => s.loading);
+  const claiming = useGameStore((s) => s.claiming);
+  const claimError = useGameStore((s) => s.claimError);
+  const ownedCount = useGameStore((s) => s.ownedCount);
+  const stats = useGameStore((s) => s.stats);
+  const playerLocation = useGameStore((s) => s.playerLocation);
+  const selectCell = useGameStore((s) => s.selectCell);
+  const claimCell = useGameStore((s) => s.claimCell);
+  const initPlayer = useGameStore((s) => s.initPlayer);
+  const setLocation = useGameStore((s) => s.setLocation);
+  const loadCells = useGameStore((s) => s.loadCells);
 
-  const centerLat = opts?.centerLat ?? 35.6892;
-  const centerLng = opts?.centerLng ?? 51.3890;
-  const gridSize = opts?.gridSize ?? 20;
-  const tileSize = opts?.tileSize ?? 0.001;
-
-  // Generate initial cells if not loaded from server
-  const generateCells = useCallback((): GameCell[] => {
-    const result: GameCell[] = [];
-    for (let row = -gridSize; row <= gridSize; row++) {
-      for (let col = -gridSize; col <= gridSize; col++) {
-        const lat = centerLat + row * tileSize;
-        const lng = centerLng + col * tileSize;
-        result.push({
-          id: `${row}_${col}`,
-          row,
-          col,
-          status: "available",
-          ownerId: null,
-          polygon: [[
-            [lng, lat],
-            [lng + tileSize, lat],
-            [lng + tileSize, lat + tileSize],
-            [lng, lat + tileSize],
-            [lng, lat],
-          ]],
-        });
-      }
-    }
-    return result;
-  }, [centerLat, centerLng, gridSize, tileSize]);
-
-  // Load game data
+  // Initialize player on mount
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/claims");
-        const data = await res.json();
-        
-        if (data.total_count > 0) {
-          // Server has cells - use them
-          setStats({ total: data.total_count, claimed: data.claimed, available: data.available });
-        } else {
-          // Generate fresh cells
-          const generated = generateCells();
-          setCells(generated);
-          setStats({ total: generated.length, claimed: 0, available: generated.length });
-        }
-      } catch (e) {
-        console.error("Failed to load game state:", e);
-        const generated = generateCells();
-        setCells(generated);
-        setStats({ total: generated.length, claimed: 0, available: generated.length });
-      } finally {
-        setLoading(false);
-      }
+    initPlayer();
+    
+    // Try to get real geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => {}, // Error callback - ignore
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
     }
-    load();
-  }, [generateCells]);
+  }, [initPlayer, setLocation]);
 
-  // Update owned count
+  // Load demo data from API
   useEffect(() => {
-    const count = cells.filter(c => c.ownerId === DEMO_PLAYER_ID).length;
-    setOwnedCount(count);
-  }, [cells]);
+    fetch("/api/cells")
+      .then(res => res.json())
+      .then(data => loadCells(data as any))
+      .catch(console.error);
+  }, [loadCells]);
 
   const selectedCell = cells.find(c => c.id === selectedCellId) ?? null;
 
-  const selectCell = useCallback((cellId: string) => {
-    setSelectedCellId(prev => prev === cellId ? null : cellId);
-    setClaimError(null);
-  }, []);
-
-  const claimCell = useCallback(async () => {
-    if (!selectedCell || selectedCell.status !== "available") return;
-
-    setClaiming(true);
-    setClaimError(null);
-
-    try {
-      const res = await fetch("/api/claims", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: crypto.randomUUID(),
-          playerId: DEMO_PLAYER_ID,
-          cellId: selectedCell.id,
-          timestamp: Date.now(),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.reason) {
-          setClaimError(data.reason);
-        } else {
-          setClaimError("claim_failed");
-        }
-        return;
-      }
-
-      // Update local state
-      setCells(prev => prev.map(c =>
-        c.id === selectedCell.id
-          ? { ...c, status: "pending_claim", ownerId: DEMO_PLAYER_ID, claimedAt: Date.now() }
-          : c
-      ));
-      setStats(prev => ({ ...prev, claimed: prev.claimed + 1, available: prev.available - 1 }));
-    } catch (e) {
-      setClaimError("claim_network_error");
-    } finally {
-      setClaiming(false);
-    }
-  }, [selectedCell]);
-
-  const confirmClaim = useCallback(async (cellId: string) => {
-    try {
-      const res = await fetch(`/api/claims`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cellId, playerId: DEMO_PLAYER_ID }),
-      });
-
-      if (!res.ok) {
-        setClaimError("confirm_failed");
-        return;
-      }
-
-      // Update local state
-      setCells(prev => prev.map(c =>
-        c.id === cellId
-          ? { ...c, status: "claimed" }
-          : c
-      ));
-    } catch (e) {
-      setClaimError("confirm_network_error");
-    }
-  }, []);
-
   return {
     cells,
-    selectedCell,
     selectedCellId,
+    selectedCell,
     loading,
     claiming,
     claimError,
+    playerLocation,
     ownedCount,
     stats,
     selectCell,
     claimCell,
-    confirmClaim,
+    initPlayer,
   };
 }
+
+export default useGameState;

@@ -1,7 +1,6 @@
 {
   "Map": {
-    "title": "IRAN GAME",
-    "beta": "نسخه آزمایشی"
+    "title": "IRAN GAME"
   },
   "World": {
     "selectCell": "Select a land cell",
@@ -24,7 +23,8 @@
     "errorPermissionDenied": "Location permission was denied.",
     "errorPositionUnavailable": "Location is unavailable.",
     "errorTimeout": "Request for location timed out.",
-    "errorUnknown": "An error occurred while getting location."
+    "errorUnknown": "An error occurred while getting location.",
+    "centerOnMe": "Center on me"
   },
   "Language": {
     "fa": "فارسی",
@@ -46,10 +46,13 @@
     "ownedByYou": "Your Territory",
     "ownedCount": "Territories",
     "totalCells": "Total Cells",
-    "language": "فارسی",
+    "language": "English",
+    "player": "Player",
+    "loading": "Loading...",
     "claim_success": "Territory claimed!",
     "claim_failed": "Failed to claim territory",
     "claim_already_owned": "This territory is already claimed",
+    "claim_conflict": "Another player claimed this cell first",
     "claim_network_error": "Network error. Try again.",
     "confirm_network_error": "Network error. Try again.",
     "permission_hint": "Enable location for enhanced gameplay"

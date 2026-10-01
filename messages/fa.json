@@ -1,7 +1,6 @@
 {
   "Map": {
-    "title": "بازی ایران",
-    "beta": "نسخه آزمایشی"
+    "title": "بازی ایران"
   },
   "World": {
     "selectCell": "یک قطعه زمین را انتخاب کنید",
@@ -17,14 +16,15 @@
     "gettingLocation": "در حال دریافت موقعیت...",
     "locationActive": "موقعیت مکانی فعال است",
     "accuracy": "دقت GPS",
-    "refreshLocation": "به‌روزرسانی موقعیت",
+    "refreshLocation": "بهروزرسانی موقعیت",
     "loading": "در حال دریافت...",
     "permissionHint": "برای استفاده از بازی باید اجازه دسترسی به موقعیت مکانی را بدهید.",
-    "errorNoGeolocation": "مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند.",
+    "errorNoGeolocation": "مرورگر شما از موقعیت مکانی پشتیبانی نمیکند.",
     "errorPermissionDenied": "اجازه دسترسی به موقعیت مکانی داده نشد.",
     "errorPositionUnavailable": "موقعیت مکانی در دسترس نیست.",
     "errorTimeout": "دریافت موقعیت مکانی زمان زیادی طول کشید.",
-    "errorUnknown": "خطایی در دریافت موقعیت مکانی رخ داد."
+    "errorUnknown": "خطایی در دریافت موقعیت مکانی رخ داد.",
+    "centerOnMe": "تمرکز روی من"
   },
   "Language": {
     "fa": "فارسی",
@@ -47,10 +47,12 @@
     "ownedCount": "قلمروها",
     "totalCells": "کل قطعات",
     "language": "English",
-    "total": "کل قطعات",
+    "player": "بازیکن",
+    "loading": "در حال بارگذاری...",
     "claim_success": "قلمرو تصاحب شد!",
     "claim_failed": "خطا در تصاحب قلمرو",
     "claim_already_owned": "این قلمرو قبلاً تصاحب شده است",
+    "claim_conflict": "بازیگر دیگری این قطعه را قبلاً تصاحب کرده",
     "claim_network_error": "خطای شبکه. دوباره تلاش کنید.",
     "confirm_network_error": "خطای شبکه. دوباره تلاش کنید.",
     "permission_hint": "موقعیت مکانی را برای تجربه بهتر فعال کنید"

@@ -16,6 +16,7 @@ export interface GameCell {
   createdAt?: number;
   claimedAt?: number;
   constructionStartedAt?: number;
+  buildability?: 'buildable' | 'non_buildable' | 'restricted'; // New field from geography
 }
 
 export interface CellClaimResult {
@@ -33,5 +34,17 @@ export function isCellClaimed(cell: GameCell): boolean {
 }
 
 export function isCellBuildable(cell: GameCell): boolean {
-  return cell.status === "claimed" || cell.status === "under_construction";
+  // Cell is buildable if it's claimed AND the underlying geography allows building
+  if (cell.status !== "claimed" && cell.status !== "under_construction") {
+    return false;
+  }
+  // Check buildability status (undefined means buildable by default)
+  return cell.buildability !== 'non_buildable' && cell.buildability !== 'restricted';
+}
+
+/**
+ * Get all buildable cells from a list
+ */
+export function getBuildableCells(cells: GameCell[]): GameCell[] {
+  return cells.filter(c => c.buildability === 'buildable' || !c.buildability);
 }
