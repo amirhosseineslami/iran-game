@@ -1,183 +1,83 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type { LngLat } from "@/features/world/types/gameCell";
-import { ServerClaimEngine } from "@/features/server/claimEngine";
-import { GameWorld } from "@/features/world/state/GameState";
+import {
+  attemptClaim,
+  getAllCells,
+  releaseClaim,
+} from "@/features/world/server/store";
 
-// In-memory game world for development
-const gameWorld = new GameWorld();
+// GET /api/claims — world stats
+export async function GET() {
+  const cells = getAllCells();
+  const claimed = cells.filter((c) => c.status === "claimed").length;
+  const pending = cells.filter((c) => c.status === "pending_claim").length;
+  const available = cells.filter((c) => c.status === "available").length;
 
-// Initialize with some cells if empty
-if (!gameWorld.getState()) {
-  const cells = generateSampleCells();
-  gameWorld.load(cells);
+  return NextResponse.json({
+    total_count: cells.length,
+    claimed,
+    pending,
+    available,
+  });
 }
 
-// Create claim engine instance
-const claimEngine = new ServerClaimEngine(
-  async (id) => gameWorld.getCellById(id),
-  async (playerId) => gameWorld.getCellsForPlayer(playerId),
-  async (cell) => {
-    // Update in game world
-    const state = gameWorld.getState();
-    if (state) {
-      const updatedCells = state.cells.map((c) =>
-        c.id === cell.id ? cell : c
-      );
-      gameWorld.load(updatedCells);
-    }
-  },
-  async () => {} // No-op logger
-);
-
-function generateSampleCells() {
-  const cells = [];
-  const tileSize = 0.001;
-  const centerLat = 35.6892; // Tehran
-  const centerLng = 51.3890;
-  
-  for (let row = -50; row <= 50; row++) {
-    for (let col = -50; col <= 50; col++) {
-      const lat = centerLat + row * tileSize;
-      const lng = centerLng + col * tileSize;
-      
-      cells.push({
-        id: `${row}_${col}`,
-        row,
-        col,
-        status: "available" as const,
-        ownerId: null,
-        polygon: [
-          [
-            [lng, lat] as LngLat,
-            [lng + tileSize, lat] as LngLat,
-            [lng + tileSize, lat + tileSize] as LngLat,
-            [lng, lat + tileSize] as LngLat,
-            [lng, lat] as LngLat,
-          ],
-        ],
-      });
-    }
-  }
-  return cells;
-}
-
-// GET /api/claims - Get all claims or stats
-export async function GET(request: NextRequest) {
-  try {
-    const state = gameWorld.getState();
-    if (!state) {
-      return NextResponse.json({ total_count: 0, claimed: 0, available: 0 });
-    }
-    
-    const claimed = state.cells.filter((c) => c.status === "claimed").length;
-    const pending = state.cells.filter((c) => c.status === "pending_claim").length;
-    const available = state.cells.filter((c) => c.status === "available").length;
-    
-    return NextResponse.json({
-      total_count: state.cells.length,
-      claimed,
-      pending,
-      available,
-    });
-  } catch (error) {
-    console.error("Error getting claims:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-// POST /api/claims - Claim a cell
+// POST /api/claims — claim a cell
 export async function POST(request: NextRequest) {
+  let body: {
+    sessionId?: string;
+    playerId?: string;
+    cellId?: string;
+    timestamp?: number;
+  };
+
   try {
-    const body = await request.json();
-    const { sessionId, playerId, cellId, timestamp } = body;
-    
-    if (!sessionId || !playerId || !cellId || !timestamp) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-    
-    const result = await claimEngine.processClaim({
-      sessionId,
-      playerId,
-      cellId,
-      timestamp,
-    });
-    
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(
-        { error: result.reason },
-        { status: 409 }
-      );
-    }
-  } catch (error) {
-    console.error("Error creating claim:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
+
+  const { sessionId, playerId, cellId, timestamp } = body;
+
+  if (!sessionId || !playerId || !cellId || !timestamp) {
+    return NextResponse.json(
+      { error: "Missing required fields: sessionId, playerId, cellId, timestamp" },
+      { status: 400 }
+    );
+  }
+
+  const outcome = attemptClaim({ cellId, playerId, timestamp });
+
+  if (outcome.ok) {
+    return NextResponse.json({ success: true, cell: outcome.cell, sessionId });
+  }
+
+  const status = outcome.reason === "CELL_NOT_FOUND" ? 404 : 409;
+  return NextResponse.json(
+    { error: outcome.reason, sessionId },
+    { status }
+  );
 }
 
-// PUT /api/claims/:cellId/confirm - Confirm a claim
-export async function PUT(
-  request: NextRequest
-) {
+// DELETE /api/claims — release a cell owned by the caller
+export async function DELETE(request: NextRequest) {
+  let body: { cellId?: string; playerId?: string };
   try {
-    const body = await request.json();
-    const { cellId, playerId } = body;
-
-    if (!cellId || !playerId) {
-      return NextResponse.json(
-        { error: "Missing cellId or playerId" },
-        { status: 400 }
-      );
-    }
-
-    const success = await claimEngine.confirmClaim(cellId, playerId);
-
-    if (success) {
-      return NextResponse.json({ success: true });
-    } else {
-      return NextResponse.json(
-        { error: "Failed to confirm claim" },
-        { status: 400 }
-      );
-    }
-  } catch (error) {
-    console.error("Error confirming claim:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
-}
 
-// DELETE /api/claims/:cellId - Cancel a claim
-export async function DELETE(
-  request: NextRequest
-) {
-  try {
-    const body = await request.json();
-    const { cellId, playerId } = body;
-
-    if (!cellId || !playerId) {
-      return NextResponse.json(
-        { error: "Missing cellId or playerId" },
-        { status: 400 }
-      );
-    }
-
-    const success = await claimEngine.cancelClaim(cellId, playerId);
-
-    if (success) {
-      return NextResponse.json({ success: true });
-    } else {
-      return NextResponse.json(
-        { error: "Failed to cancel claim" },
-        { status: 400 }
-      );
-    }
-  } catch (error) {
-    console.error("Error canceling claim:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  const { cellId, playerId } = body;
+  if (!cellId || !playerId) {
+    return NextResponse.json(
+      { error: "Missing cellId or playerId" },
+      { status: 400 }
+    );
   }
+
+  const ok = releaseClaim(cellId, playerId);
+  if (!ok) {
+    return NextResponse.json({ error: "RELEASE_FAILED" }, { status: 400 });
+  }
+  return NextResponse.json({ success: true });
 }
