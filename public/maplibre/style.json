@@ -1,0 +1,14 @@
+{
+  "version": 8,
+  "name": "iran-game-dev",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#eef2f5"
+      }
+    }
+  ]
+}

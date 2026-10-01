@@ -20,6 +20,7 @@ interface GameState {
   loading: boolean;
   claiming: boolean;
   claimError: string | null;
+  loadError: string | null;
   ownedCount: number;
   stats: GameStats;
   initialized: boolean;
@@ -28,6 +29,7 @@ interface GameState {
 
   initPlayer: () => void;
   loadCells: (cells: GameCell[]) => void;
+  setLoadError: (error: string | null) => void;
   selectCell: (cellId: string | null) => void;
   claimCell: (cellId: string) => Promise<void>;
   refreshState: () => Promise<void>;
@@ -55,6 +57,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   loading: true,
   claiming: false,
   claimError: null,
+  loadError: null,
   ownedCount: 0,
   stats: emptyStats,
   initialized: false,
@@ -77,13 +80,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       ownedCount,
       stats: { total: cells.length, claimed, available, pending },
       loading: false,
+      loadError: null,
     });
   },
+
+  setLoadError: (error) =>
+    set({ loading: false, loadError: error ?? "cells_load_failed" }),
 
   selectCell: (cellId) => set({ selectedCellId: cellId, claimError: null }),
   setClaimError: (error) => set({ claimError: error }),
   setLocation: (location) => set({ playerLocation: location }),
-  addPlayerClaim: (cellId) => set((state) => ({ playerClaims: [...state.playerClaims, cellId] })),
+  addPlayerClaim: (cellId) =>
+    set((state) => ({ playerClaims: [...state.playerClaims, cellId] })),
 
   claimCell: async (cellId) => {
     const state = get();
@@ -114,9 +122,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         return;
       }
 
-      // Cast status to ensure type safety
       const updatedCells = cells.map((c) =>
-        c.id === cellId ? { ...c, status: "claimed" as GameCellStatus, ownerId: playerId } : c
+        c.id === cellId
+          ? { ...c, status: "claimed" as GameCellStatus, ownerId: playerId }
+          : c
       );
       const ownedCount = updatedCells.filter((c) => c.ownerId === playerId).length;
       const claimed = updatedCells.filter((c) => c.status === "claimed").length;
@@ -141,7 +150,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       const res = await fetch("/api/claims");
       if (res.ok) {
         const data = await res.json();
-        set({ stats: { total: data.total_count, claimed: data.claimed, available: data.available, pending: data.pending || 0 }, loading: false });
+        set({
+          stats: {
+            total: data.total_count,
+            claimed: data.claimed,
+            available: data.available,
+            pending: data.pending || 0,
+          },
+          loading: false,
+        });
       }
     } catch {
       set({ loading: false });
