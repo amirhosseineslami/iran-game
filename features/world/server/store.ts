@@ -14,6 +14,7 @@ import { generateCellsFromGeography } from "@/features/world/services/generateBu
 
 interface StoreState {
   cells: Map<string, GameCell>;
+  processedSessions: Set<string>;
   seeded: boolean;
 }
 
@@ -29,7 +30,7 @@ function seed(): StoreState {
   for (const cell of cells) {
     map.set(cell.id, cell);
   }
-  return { cells: map, seeded: true };
+  return { cells: map, processedSessions: new Set(), seeded: true };
 }
 
 function getStore(): StoreState {
@@ -63,18 +64,30 @@ export interface ClaimAttempt {
   cellId: string;
   playerId: string;
   timestamp: number;
+  sessionId?: string;
 }
 
 export type ClaimOutcome =
-  | { ok: true; cell: GameCell }
-  | { ok: false; reason: string };
+  | { ok: true; cell: GameCell; duplicate: boolean }
+  | { ok: false; reason: string; duplicate: boolean };
 
 export function attemptClaim(input: ClaimAttempt): ClaimOutcome {
+  // Idempotency: if this sessionId was already processed, return the original result
+  if (input.sessionId) {
+    const store = getStore();
+    if (store.processedSessions.has(input.sessionId)) {
+      const cell = getCellById(input.cellId);
+      if (cell && cell.status === "claimed" && cell.ownerId === input.playerId) {
+        return { ok: true, cell, duplicate: true };
+      }
+    }
+  }
+
   const cell = getCellById(input.cellId);
-  if (!cell) return { ok: false, reason: "CELL_NOT_FOUND" };
-  if (cell.status !== "available") return { ok: false, reason: "CELL_NOT_AVAILABLE" };
+  if (!cell) return { ok: false, reason: "CELL_NOT_FOUND", duplicate: false };
+  if (cell.status !== "available") return { ok: false, reason: "CELL_NOT_AVAILABLE", duplicate: false };
   if (cell.buildability === "non_buildable" || cell.buildability === "restricted") {
-    return { ok: false, reason: "CELL_NOT_BUILDABLE" };
+    return { ok: false, reason: "CELL_NOT_BUILDABLE", duplicate: false };
   }
 
   const updated: GameCell = {
@@ -84,7 +97,13 @@ export function attemptClaim(input: ClaimAttempt): ClaimOutcome {
     claimedAt: input.timestamp,
   };
   replaceCell(updated);
-  return { ok: true, cell: updated };
+
+  // Mark session as processed for idempotency
+  if (input.sessionId) {
+    getStore().processedSessions.add(input.sessionId);
+  }
+
+  return { ok: true, cell: updated, duplicate: false };
 }
 
 export function releaseClaim(cellId: string, playerId: string): boolean {

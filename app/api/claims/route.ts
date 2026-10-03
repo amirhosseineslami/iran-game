@@ -6,6 +6,24 @@ import {
   releaseClaim,
 } from "@/features/world/server/store";
 
+// Simple in-memory rate limiter (per player, per minute)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30; // claims per minute
+const RATE_WINDOW_MS = 60_000;
+
+function isRateLimited(playerId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(playerId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(playerId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT;
+}
+
 // GET /api/claims — world stats
 export async function GET() {
   const cells = getAllCells();
@@ -45,10 +63,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const outcome = attemptClaim({ cellId, playerId, timestamp });
+  // Rate limiting
+  if (isRateLimited(playerId)) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", sessionId },
+      { status: 429 }
+    );
+  }
+
+  const outcome = attemptClaim({ cellId, playerId, timestamp, sessionId });
 
   if (outcome.ok) {
-    return NextResponse.json({ success: true, cell: outcome.cell, sessionId });
+    return NextResponse.json({
+      success: true,
+      cell: outcome.cell,
+      sessionId,
+      duplicate: outcome.duplicate,
+    });
   }
 
   const status = outcome.reason === "CELL_NOT_FOUND" ? 404 : 409;
