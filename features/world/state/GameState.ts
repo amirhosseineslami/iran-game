@@ -14,7 +14,7 @@ export class GameWorld {
 
   load(cells: GameCell[]): void {
     this.state = {
-      id: crypto.randomUUID(),
+      id: `world-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       cells,
       createdAt: Date.now(),
       updatedAt: Date.now(),
