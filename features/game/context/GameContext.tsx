@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import type { GameCell, GameCellStatus } from "@/features/world/types/gameCell";
 import { calculateProgression, calculateClaimXp } from "@/features/game/services/progression";
+import {
+  initializeQuests,
+  processGameEvent,
+  claimQuestReward,
+  type QuestState,
+} from "@/features/game/services/quests";
 
 interface GameStats {
   total: number;
@@ -29,6 +35,7 @@ interface GameState {
   playerClaims: string[];
   xp: number;
   progression: ReturnType<typeof calculateProgression>;
+  questState: QuestState;
 
   initPlayer: () => void;
   loadCells: (cells: GameCell[]) => void;
@@ -69,6 +76,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerClaims: [],
   xp: 0,
   progression: calculateProgression(0, 0),
+  questState: initializeQuests(),
 
   initPlayer: () => {
     const playerId = getOrCreatePlayerId();
@@ -159,6 +167,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       const newXp = get().xp + xpGained;
       const progression = calculateProgression(newXp, ownedCount);
 
+      // Update quests
+      const { state: newQuestState } = processGameEvent(
+        get().questState,
+        { type: "claim", value: ownedCount }
+      );
+
       set({
         cells: updatedCells,
         ownedCount,
@@ -168,6 +182,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         playerClaims: [...get().playerClaims, cellId],
         xp: newXp,
         progression,
+        questState: newQuestState,
       });
     } catch {
       set({ claimError: "claim_network_error", claiming: false });
@@ -210,6 +225,7 @@ export function useGame() {
   const playerClaims = useGameStore((s) => s.playerClaims);
   const xp = useGameStore((s) => s.xp);
   const progression = useGameStore((s) => s.progression);
+  const questState = useGameStore((s) => s.questState);
 
   const selectedCell = cells.find((c) => c.id === selectedCellId) ?? null;
 
@@ -228,6 +244,7 @@ export function useGame() {
     playerClaims,
     xp,
     progression,
+    questState,
     selectCell: (id: string | null) => useGameStore.getState().selectCell(id),
     claimCell: (id: string) => useGameStore.getState().claimCell(id),
     refreshState: () => useGameStore.getState().refreshState(),
