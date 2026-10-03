@@ -7,7 +7,7 @@ import {
   getFilteredPosition,
 } from "../locationQuality";
 
-function makePosition(overrides: Partial<GeolocationPosition> = {}): GeolocationPosition {
+function makePosition(coordsOverrides: Partial<GeolocationPosition["coords"]> = {}): GeolocationPosition {
   const now = Date.now();
   return {
     coords: {
@@ -18,10 +18,9 @@ function makePosition(overrides: Partial<GeolocationPosition> = {}): Geolocation
       altitudeAccuracy: null,
       heading: null,
       speed: null,
-      ...overrides,
-    } as GeolocationPosition["coords"],
+      ...coordsOverrides,
+    },
     timestamp: now,
-    ...overrides,
   } as GeolocationPosition;
 }
 
