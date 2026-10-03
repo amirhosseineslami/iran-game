@@ -11,8 +11,8 @@ export default function LocationControl() {
   if (!location && !loading && !error && !permissionDenied) return null;
 
   return (
-    <div className="absolute bottom-6 inset-x-4 z-20 flex justify-center pointer-events-none">
-      <div className="glass-card rounded-2xl px-4 py-3 shadow-lg w-full max-w-xs pointer-events-auto animate-slide-up">
+    <div className="absolute bottom-4 sm:bottom-6 inset-x-3 sm:inset-x-4 z-20 flex justify-center pointer-events-none">
+      <div className="glass-card rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 shadow-lg w-full max-w-xs pointer-events-auto animate-slide-up">
         <div className="flex items-center gap-2">
           {loading && (
             <>

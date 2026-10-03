@@ -49,9 +49,9 @@ export default function CellBottomSheet({
 
   return (
     <div className="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
-      <div className="max-w-lg mx-auto px-4 pb-4 pt-2 pointer-events-auto">
+      <div className="max-w-lg mx-auto px-3 sm:px-4 pb-3 sm:pb-4 pt-2 pointer-events-auto">
         {/* Bottom sheet */}
-        <div className="glass-card rounded-t-3xl p-5 shadow-2xl animate-slide-up">
+        <div className="glass-card rounded-t-3xl p-4 sm:p-5 shadow-2xl animate-slide-up">
           {/* Drag handle */}
           <div className="flex justify-center mb-4">
             <div className="w-10 h-1 rounded-full bg-white/20" />
