@@ -10,6 +10,7 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const TEHRAN_CENTER = [51.389, 35.6892] as [number, number];
 const INITIAL_ZOOM = 13;
 const MAX_CELLS = 500;
+const DEBOUNCE_MS = 300;
 
 const SOURCE_ID = "game-cells";
 const PLAYER_SOURCE_ID = "player-location";
@@ -25,6 +26,7 @@ interface GameMapProps {
   selectedCellId: string | null;
   playerLocation: { latitude: number; longitude: number; accuracy?: number } | null;
   onCellClick: (cellId: string) => void;
+  onViewportChange?: (bbox: string) => void;
 }
 
 export default function GameMap({
@@ -32,14 +34,21 @@ export default function GameMap({
   selectedCellId,
   playerLocation,
   onCellClick,
+  onViewportChange,
 }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const clickHandlerRef = useRef(onCellClick);
+  const viewportChangeRef = useRef(onViewportChange);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     clickHandlerRef.current = onCellClick;
   }, [onCellClick]);
+
+  useEffect(() => {
+    viewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -72,10 +81,28 @@ export default function GameMap({
     };
     map.on("click", onClick);
 
+    // Viewport change handler — debounced
+    const onMoveEnd = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        const bounds = map.getBounds();
+        const bbox = [
+          bounds.getWest(),
+          bounds.getSouth(),
+          bounds.getEast(),
+          bounds.getNorth(),
+        ].join(",");
+        viewportChangeRef.current?.(bbox);
+      }, DEBOUNCE_MS);
+    };
+    map.on("moveend", onMoveEnd);
+
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       map.off("mousedown", onMouseDown);
       map.off("mouseup", onMouseUp);
       map.off("click", onClick);
+      map.off("moveend", onMoveEnd);
       map.remove();
       mapRef.current = null;
     };
@@ -130,7 +157,6 @@ export default function GameMap({
 
       map.addSource(SOURCE_ID, { type: "geojson", data: geojson });
 
-      // Territory fill — color by status
       map.addLayer({
         id: LAYER_FILL,
         type: "fill",
@@ -156,7 +182,6 @@ export default function GameMap({
         },
       });
 
-      // Territory outline
       map.addLayer({
         id: LAYER_OUTLINE,
         type: "line",
@@ -173,7 +198,6 @@ export default function GameMap({
         },
       });
 
-      // Click target (invisible, above everything)
       map.addLayer({
         id: LAYER_CLICK,
         type: "fill",
@@ -182,7 +206,6 @@ export default function GameMap({
         layout: { visibility: "visible" },
       });
 
-      // Selected highlight — thick glowing border
       map.addLayer({
         id: LAYER_SELECTED,
         type: "line",
@@ -243,7 +266,6 @@ export default function GameMap({
         },
       });
 
-      // Outer glow ring
       map.addLayer({
         id: LAYER_PLAYER_RING,
         type: "circle",
@@ -256,7 +278,6 @@ export default function GameMap({
         },
       });
 
-      // Core dot
       map.addLayer({
         id: LAYER_PLAYER,
         type: "circle",
@@ -276,7 +297,6 @@ export default function GameMap({
       map.once("load", addPlayerMarker);
     }
 
-    // Update position without re-adding layers
     try {
       const src = map.getSource(PLAYER_SOURCE_ID) as
         | { setData: (d: unknown) => void }

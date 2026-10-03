@@ -29,6 +29,7 @@ interface GameState {
 
   initPlayer: () => void;
   loadCells: (cells: GameCell[]) => void;
+  mergeCells: (cells: GameCell[]) => void;
   setLoadError: (error: string | null) => void;
   selectCell: (cellId: string | null) => void;
   claimCell: (cellId: string) => Promise<void>;
@@ -81,6 +82,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       stats: { total: cells.length, claimed, available, pending },
       loading: false,
       loadError: null,
+    });
+  },
+
+  mergeCells: (newCells) => {
+    const state = get();
+    const cellMap = new Map(state.cells.map((c) => [c.id, c]));
+    for (const cell of newCells) {
+      cellMap.set(cell.id, cell);
+    }
+    const merged = Array.from(cellMap.values());
+    const ownedCount = merged.filter((c) => c.ownerId === state.playerId).length;
+    const claimed = merged.filter((c) => c.status === "claimed").length;
+    const available = merged.filter((c) => c.status === "available").length;
+    set({
+      cells: merged,
+      ownedCount,
+      stats: { total: merged.length, claimed, available, pending: 0 },
     });
   },
 

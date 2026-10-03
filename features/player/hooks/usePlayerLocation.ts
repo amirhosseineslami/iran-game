@@ -20,6 +20,9 @@ const GEO_ERROR_KEYS: Record<number, string> = {
   3: "errorTimeout",
 };
 
+const WATCH_TIMEOUT_MS = 12_000;
+const START_DELAY_MS = 100;
+
 export function usePlayerLocation(): UsePlayerLocationResult {
   const t = useTranslations("Player");
   const [location, setLocation] = useState<PlayerLocation | null>(null);
@@ -30,8 +33,14 @@ export function usePlayerLocation(): UsePlayerLocationResult {
 
   const watchIdRef = useRef<number | null>(null);
   const lastPositionRef = useRef<{ lat: number; lng: number } | null>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedRef = useRef(false);
+  const locationRef = useRef<PlayerLocation | null>(null);
+
+  // Keep ref in sync with state for use inside callbacks
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   const clearWatch = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -58,8 +67,8 @@ export function usePlayerLocation(): UsePlayerLocationResult {
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000,
+      timeout: 10_000,
+      maximumAge: 5_000,
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -98,25 +107,26 @@ export function usePlayerLocation(): UsePlayerLocationResult {
       options
     );
 
-    timeoutRef.current = window.setTimeout(() => {
-      if (startedRef.current && !location) {
+    // Timeout: if no location after WATCH_TIMEOUT_MS, show error
+    timeoutRef.current = setTimeout(() => {
+      if (startedRef.current && !locationRef.current) {
         setLoading(false);
         setError(t("errorTimeout"));
       }
-    }, 10000);
-  }, [t, location]);
+    }, WATCH_TIMEOUT_MS);
+  }, [t]);
 
   const refresh = useCallback(() => {
     clearWatch();
     startedRef.current = false;
+    lastPositionRef.current = null;
     startWatching();
   }, [clearWatch, startWatching]);
 
-  // Start watching after a short delay to avoid blocking render
   useEffect(() => {
     const timer = setTimeout(() => {
       startWatching();
-    }, 100);
+    }, START_DELAY_MS);
     return () => {
       clearTimeout(timer);
       clearWatch();

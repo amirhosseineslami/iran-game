@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useGame, useGameStore } from "@/features/game/context/GameContext";
 import useGameState from "@/features/game/hooks/useGameState";
@@ -16,6 +16,7 @@ export default function Page() {
   const t = useTranslations("Game");
   const w = useTranslations("World");
   const [toast, setToast] = useState<ToastData | null>(null);
+  const loadingRef = useRef(false);
 
   // useGameState owns the cell-loading lifecycle and player init.
   useGameState();
@@ -41,7 +42,6 @@ export default function Page() {
 
   const handleClaim = useCallback(async (cellId: string) => {
     await claimCell(cellId);
-    // Show toast based on claim result — read from store after mutation
     const { claimError: err } = useGameStore.getState();
     if (err) {
       setToast({ message: t(err) || err, type: "error" });
@@ -52,6 +52,24 @@ export default function Page() {
 
   const handleDismissToast = useCallback(() => setToast(null), []);
 
+  // Viewport-based cell loading — fetch only visible cells
+  const handleViewportChange = useCallback(async (bbox: string) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const res = await fetch(`/api/cells?bbox=${encodeURIComponent(bbox)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.cells)) {
+        useGameStore.getState().mergeCells(data.cells);
+      }
+    } catch {
+      // Silent — viewport refresh is non-critical
+    } finally {
+      loadingRef.current = false;
+    }
+  }, []);
+
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-[#0f172a]">
       {/* Map layer — always present */}
@@ -60,6 +78,7 @@ export default function Page() {
         selectedCellId={selectedCellId}
         playerLocation={playerLocation}
         onCellClick={handleCellClick}
+        onViewportChange={handleViewportChange}
       />
 
       {/* Subtle vignette over map for UI readability */}
