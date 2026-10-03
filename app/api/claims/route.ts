@@ -5,6 +5,7 @@ import {
   getAllCells,
   releaseClaim,
 } from "@/features/world/server/store";
+import { logger } from "@/lib/logger";
 
 // Simple in-memory rate limiter (per player, per minute)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -41,6 +42,7 @@ export async function GET() {
 
 // POST /api/claims — claim a cell
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   let body: {
     sessionId?: string;
     playerId?: string;
@@ -65,15 +67,20 @@ export async function POST(request: NextRequest) {
 
   // Rate limiting
   if (isRateLimited(playerId)) {
+    logger.claimRateLimited({ playerId, sessionId });
     return NextResponse.json(
       { error: "RATE_LIMITED", sessionId },
       { status: 429 }
     );
   }
 
+  logger.claimAttempt({ playerId, cellId, sessionId });
+
   const outcome = attemptClaim({ cellId, playerId, timestamp, sessionId });
+  const durationMs = Date.now() - startTime;
 
   if (outcome.ok) {
+    logger.claimSuccess({ playerId, cellId, sessionId, duplicate: outcome.duplicate, durationMs });
     return NextResponse.json({
       success: true,
       cell: outcome.cell,
@@ -82,6 +89,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  logger.claimFailure({ playerId, cellId, sessionId, reason: outcome.reason, durationMs });
   const status = outcome.reason === "CELL_NOT_FOUND" ? 404 : 409;
   return NextResponse.json(
     { error: outcome.reason, sessionId },
