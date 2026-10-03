@@ -7,7 +7,6 @@ import GameMap from "@/features/map/components/GameMap";
 import CellBottomSheet from "@/features/game/components/CellBottomSheet";
 import GameHUD from "@/features/game/components/GameHUD";
 import PlayerLayer from "@/features/player/components/PlayerLayer";
-import LocationControl from "@/features/player/components/LocationControl";
 import LanguageSwitcher from "@/features/i18n/components/LanguageSwitcher";
 
 export default function Page() {
@@ -47,7 +46,6 @@ export default function Page() {
       />
       <GameHUD />
       <PlayerLayer />
-      <LocationControl />
       <LanguageSwitcher />
       <CellBottomSheet
         cell={selectedCell}

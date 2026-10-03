@@ -68,7 +68,7 @@ export function useGameState() {
       cancelled = true;
       controller.abort();
     };
-  }, [loadCells, setLoadError]);
+  }, []);
 
   const selectedCell = cells.find((c) => c.id === selectedCellId) ?? null;
 
