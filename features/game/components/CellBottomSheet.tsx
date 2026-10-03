@@ -66,7 +66,11 @@ export default function CellBottomSheet({
         )}
 
         {/* Bottom sheet */}
-        <div className={`glass-card rounded-t-3xl p-4 sm:p-5 shadow-2xl ${justClaimed ? "animate-slide-up" : ""}`}>
+        <div
+          className={`glass-card rounded-t-3xl p-4 sm:p-5 shadow-2xl ${justClaimed ? "animate-slide-up" : ""}`}
+          role="dialog"
+          aria-label={`${t("gameCell")} ${cell.id}`}
+        >
           {/* Drag handle */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="w-10 h-1 rounded-full bg-white/20" />
@@ -85,6 +89,7 @@ export default function CellBottomSheet({
               onClick={onClose}
               className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
               aria-label="Close"
+              autoFocus
             >
               <X className="w-4 h-4" />
             </button>
@@ -122,6 +127,7 @@ export default function CellBottomSheet({
               type="button"
               onClick={handleClaim}
               disabled={claiming}
+              aria-label={t("claim")}
               className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3.5 font-bold text-white text-sm transition-all hover:from-amber-400 hover:to-orange-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2"
             >
               {claiming ? (
