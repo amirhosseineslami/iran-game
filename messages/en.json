@@ -56,6 +56,11 @@
     "claim_conflict": "Another player claimed this cell first",
     "claim_network_error": "Network error. Try again.",
     "confirm_network_error": "Network error. Try again.",
-    "permission_hint": "Enable location for enhanced gameplay"
+    "permission_hint": "Enable location for enhanced gameplay",
+    "onboardingText": "Explore Tehran. Find territory. Claim your ground.",
+    "onboardingStep1": "Explore the map to find available territory",
+    "onboardingStep2": "Claim territory to expand your domain",
+    "onboardingStep3": "Earn XP and level up as you grow",
+    "onboardingCta": "Start Exploring"
   }
 }

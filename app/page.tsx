@@ -11,6 +11,7 @@ import PlayerLayer from "@/features/player/components/PlayerLayer";
 import LocationControl from "@/features/player/components/LocationControl";
 import LanguageSwitcher from "@/features/i18n/components/LanguageSwitcher";
 import GameToast, { type ToastData } from "@/features/game/components/GameToast";
+import OnboardingOverlay from "@/features/game/components/OnboardingOverlay";
 
 export default function Page() {
   const t = useTranslations("Game");
@@ -114,6 +115,9 @@ export default function Page() {
 
       {/* Toast notification */}
       <GameToast toast={toast} onDismiss={handleDismissToast} />
+
+      {/* First-time onboarding */}
+      <OnboardingOverlay onDismiss={() => {}} />
 
       {/* Select-cell hint pill when nothing is selected */}
       {!selectedCell && !loading && !loadError && (
