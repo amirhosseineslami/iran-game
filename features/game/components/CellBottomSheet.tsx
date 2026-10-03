@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import type { GameCell } from "@/features/world/types/gameCell";
-import { X, MapPin, Lock, CheckCircle, Shield } from "lucide-react";
+import { X, MapPin, CheckCircle, Shield, Sparkles } from "lucide-react";
 
 interface CellBottomSheetProps {
   cell: GameCell | null;
@@ -12,7 +12,6 @@ interface CellBottomSheetProps {
   claimError: string | null;
   onClaim: (cellId: string) => void;
   onClose: () => void;
-  onToast?: (message: string, type: "success" | "error") => void;
 }
 
 export default function CellBottomSheet({
@@ -24,41 +23,57 @@ export default function CellBottomSheet({
   onClose,
 }: CellBottomSheetProps) {
   const t = useTranslations("Game");
-  const [errorShown, setErrorShown] = useState<string | null>(null);
+  const [justClaimed, setJustClaimed] = useState(false);
+  const [showXpGain, setShowXpGain] = useState(false);
+
+  // Detect claim success for animation
+  const wasAvailable = cell?.status === "available";
+  useEffect(() => {
+    if (wasAvailable === false && cell?.status === "claimed" && !claiming) {
+      setJustClaimed(true);
+      setShowXpGain(true);
+      const timer = setTimeout(() => {
+        setJustClaimed(false);
+        setShowXpGain(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [cell?.status, wasAvailable, claiming]);
 
   if (!cell) return null;
 
   const isAvailable = cell.status === "available";
-  const isPending = cell.status === "pending_claim";
   const isClaimed = cell.status === "claimed";
   const isOwner = cell.ownerId !== null;
-
-  const buildabilityLabel =
-    cell.buildability === "non_buildable"
-      ? t("claim_already_owned")
-      : cell.buildability === "restricted"
-      ? t("claim_conflict")
-      : "";
 
   const handleClaim = () => {
     onClaim(cell.id);
   };
 
-  // Build area estimate from row/col (approximate for display)
   const approximateArea = `${(0.11 * 0.11).toFixed(2)} km²`;
 
   return (
     <div className="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
       <div className="max-w-lg mx-auto px-3 sm:px-4 pb-3 sm:pb-4 pt-2 pointer-events-auto">
+        {/* XP gain floating indicator */}
+        {showXpGain && (
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 animate-toast-in pointer-events-none">
+            <div className="glass-card rounded-full px-3 py-1.5 shadow-lg border border-amber-500/30 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs font-bold text-amber-300">+25 XP</span>
+            </div>
+          </div>
+        )}
+
         {/* Bottom sheet */}
-        <div className="glass-card rounded-t-3xl p-4 sm:p-5 shadow-2xl animate-slide-up">
+        <div className={`glass-card rounded-t-3xl p-4 sm:p-5 shadow-2xl ${justClaimed ? "animate-slide-up" : ""}`}>
           {/* Drag handle */}
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <div className="w-10 h-1 rounded-full bg-white/20" />
           </div>
 
           {/* Header */}
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-3 sm:mb-4">
             <div>
               <div className="text-game-label mb-0.5">{t("gameCell")}</div>
               <div className="text-game-cell-id font-mono">{cell.id}</div>
@@ -76,13 +91,13 @@ export default function CellBottomSheet({
           </div>
 
           {/* Status badge */}
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition-all duration-300 ${
                 isAvailable
                   ? "bg-green-500/15 text-green-300 border-green-500/30"
                   : isClaimed
-                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30 scale-105"
                   : "bg-gray-500/15 text-gray-300 border-gray-500/30"
               }`}
             >
@@ -95,7 +110,7 @@ export default function CellBottomSheet({
 
           {/* Owner info */}
           {isOwner && (
-            <div className="flex items-center gap-2 mb-4 text-xs text-gray-400">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4 text-xs text-gray-400">
               <Shield className="w-3.5 h-3.5 text-amber-400" />
               <span>{t("owner")}: <span className="font-mono text-gray-300">{cell.ownerId!.slice(-6)}</span></span>
             </div>
@@ -124,23 +139,18 @@ export default function CellBottomSheet({
           )}
 
           {isClaimed && (
-            <div className="rounded-2xl bg-green-500/15 border border-green-500/20 py-3.5 text-center">
-              <CheckCircle className="w-5 h-5 text-green-400 mx-auto mb-1" />
-              <span className="text-sm font-semibold text-green-300">{t("ownedByYou")}</span>
+            <div className={`rounded-2xl py-3.5 text-center transition-all duration-500 ${justClaimed ? "bg-amber-500/20 border border-amber-500/30" : "bg-green-500/15 border border-green-500/20"}`}>
+              <CheckCircle className={`w-5 h-5 mx-auto mb-1 transition-colors ${justClaimed ? "text-amber-400" : "text-green-400"}`} />
+              <span className={`text-sm font-semibold ${justClaimed ? "text-amber-300" : "text-green-300"}`}>
+                {t("ownedByYou")}
+              </span>
             </div>
           )}
 
           {/* Error */}
-          {(claimError || errorShown) && (
-            <div className="mt-3 rounded-xl bg-red-500/15 border border-red-500/20 p-3 text-xs text-red-300">
-              {t(claimError || errorShown!) || (claimError || errorShown)}
-            </div>
-          )}
-
-          {/* Buildability note */}
-          {cell.buildability !== undefined && cell.buildability !== "buildable" && isAvailable && (
-            <div className="mt-2 text-[10px] text-gray-500 text-center">
-              {cell.buildability === "non_buildable" ? "🚫 " : "⚠️ "}{buildabilityLabel}
+          {claimError && (
+            <div className="mt-3 rounded-xl bg-red-500/15 border border-red-500/20 p-3 text-xs text-red-300 animate-fade-in">
+              {t(claimError) || claimError}
             </div>
           )}
         </div>
