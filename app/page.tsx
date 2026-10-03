@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useGame } from "@/features/game/context/GameContext";
+import { useGame, useGameStore } from "@/features/game/context/GameContext";
 import useGameState from "@/features/game/hooks/useGameState";
 import GameMap from "@/features/map/components/GameMap";
 import CellBottomSheet from "@/features/game/components/CellBottomSheet";
@@ -9,10 +10,12 @@ import GameHUD from "@/features/game/components/GameHUD";
 import PlayerLayer from "@/features/player/components/PlayerLayer";
 import LocationControl from "@/features/player/components/LocationControl";
 import LanguageSwitcher from "@/features/i18n/components/LanguageSwitcher";
+import GameToast, { type ToastData } from "@/features/game/components/GameToast";
 
 export default function Page() {
   const t = useTranslations("Game");
   const w = useTranslations("World");
+  const [toast, setToast] = useState<ToastData | null>(null);
 
   // useGameState owns the cell-loading lifecycle and player init.
   useGameState();
@@ -36,9 +39,18 @@ export default function Page() {
     selectCell(selectedCellId === cellId ? null : cellId);
   };
 
-  const handleClaim = (cellId: string) => {
-    claimCell(cellId);
-  };
+  const handleClaim = useCallback(async (cellId: string) => {
+    await claimCell(cellId);
+    // Show toast based on claim result — read from store after mutation
+    const { claimError: err } = useGameStore.getState();
+    if (err) {
+      setToast({ message: t(err) || err, type: "error" });
+    } else {
+      setToast({ message: t("claim_success"), type: "success" });
+    }
+  }, [claimCell, t]);
+
+  const handleDismissToast = useCallback(() => setToast(null), []);
 
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-[#0f172a]">
@@ -80,6 +92,9 @@ export default function Page() {
         onClaim={handleClaim}
         onClose={() => selectCell(null)}
       />
+
+      {/* Toast notification */}
+      <GameToast toast={toast} onDismiss={handleDismissToast} />
 
       {/* Select-cell hint pill when nothing is selected */}
       {!selectedCell && !loading && !loadError && (

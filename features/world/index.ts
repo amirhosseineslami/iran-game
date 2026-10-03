@@ -1,1 +1,1 @@
-export { default as GameWorld } from "./components/GameWorld";
+export { default as GameMap } from "../map/components/GameMap";
