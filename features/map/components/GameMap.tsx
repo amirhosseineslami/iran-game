@@ -18,8 +18,9 @@ const LAYER_FILL = "game-cells-fill";
 const LAYER_OUTLINE = "game-cells-outline";
 const LAYER_CLICK = "game-cells-click";
 const LAYER_SELECTED = "game-cells-selected";
-const LAYER_PLAYER = "player-marker";
+const LAYER_PLAYER_ACCURACY = "player-accuracy";
 const LAYER_PLAYER_RING = "player-marker-ring";
+const LAYER_PLAYER = "player-marker";
 
 interface GameMapProps {
   cells: GameCell[];
@@ -260,32 +261,54 @@ export default function GameMap({
             {
               type: "Feature",
               geometry: { type: "Point", coordinates: coords },
-              properties: {},
+              properties: { accuracy: playerLocation.accuracy ?? 10 },
             },
           ],
         },
       });
 
+      // Accuracy circle — shows GPS uncertainty radius
+      map.addLayer({
+        id: LAYER_PLAYER_ACCURACY,
+        type: "circle",
+        source: PLAYER_SOURCE_ID,
+        paint: {
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            10, 2,
+            14, 8,
+            18, 30,
+          ],
+          "circle-color": "#60a5fa",
+          "circle-opacity": 0.08,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#60a5fa",
+          "circle-stroke-opacity": 0.15,
+        },
+      });
+
+      // Outer glow ring
       map.addLayer({
         id: LAYER_PLAYER_RING,
         type: "circle",
         source: PLAYER_SOURCE_ID,
         paint: {
-          "circle-radius": 12,
+          "circle-radius": 14,
           "circle-color": "#60a5fa",
-          "circle-opacity": 0.2,
-          "circle-blur": 1,
+          "circle-opacity": 0.15,
+          "circle-blur": 2,
         },
       });
 
+      // Core dot
       map.addLayer({
         id: LAYER_PLAYER,
         type: "circle",
         source: PLAYER_SOURCE_ID,
         paint: {
-          "circle-radius": 6,
+          "circle-radius": 7,
           "circle-color": "#60a5fa",
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 2.5,
           "circle-stroke-color": "#0f172a",
         },
       });
@@ -307,7 +330,7 @@ export default function GameMap({
           features: [{
             type: "Feature",
             geometry: { type: "Point", coordinates: coords },
-            properties: {},
+            properties: { accuracy: playerLocation.accuracy ?? 10 },
           }],
         });
       }
