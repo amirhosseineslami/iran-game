@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { GameCell, GameCellStatus } from "@/features/world/types/gameCell";
+import { calculateProgression, calculateClaimXp } from "@/features/game/services/progression";
 
 interface GameStats {
   total: number;
@@ -26,6 +27,8 @@ interface GameState {
   initialized: boolean;
   playerLocation: PlayerLocation | null;
   playerClaims: string[];
+  xp: number;
+  progression: ReturnType<typeof calculateProgression>;
 
   initPlayer: () => void;
   loadCells: (cells: GameCell[]) => void;
@@ -64,6 +67,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   initialized: false,
   playerLocation: null,
   playerClaims: [],
+  xp: 0,
+  progression: calculateProgression(0, 0),
 
   initPlayer: () => {
     const playerId = getOrCreatePlayerId();
@@ -149,6 +154,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       const claimed = updatedCells.filter((c) => c.status === "claimed").length;
       const available = updatedCells.filter((c) => c.status === "available").length;
 
+      // Calculate XP and progression
+      const { xp: xpGained } = calculateClaimXp(ownedCount, cell.buildability);
+      const newXp = get().xp + xpGained;
+      const progression = calculateProgression(newXp, ownedCount);
+
       set({
         cells: updatedCells,
         ownedCount,
@@ -156,6 +166,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         claimError: null,
         claiming: false,
         playerClaims: [...get().playerClaims, cellId],
+        xp: newXp,
+        progression,
       });
     } catch {
       set({ claimError: "claim_network_error", claiming: false });
@@ -196,6 +208,8 @@ export function useGame() {
   const stats = useGameStore((s) => s.stats);
   const playerLocation = useGameStore((s) => s.playerLocation);
   const playerClaims = useGameStore((s) => s.playerClaims);
+  const xp = useGameStore((s) => s.xp);
+  const progression = useGameStore((s) => s.progression);
 
   const selectedCell = cells.find((c) => c.id === selectedCellId) ?? null;
 
@@ -212,6 +226,8 @@ export function useGame() {
     stats,
     playerLocation,
     playerClaims,
+    xp,
+    progression,
     selectCell: (id: string | null) => useGameStore.getState().selectCell(id),
     claimCell: (id: string) => useGameStore.getState().claimCell(id),
     refreshState: () => useGameStore.getState().refreshState(),
