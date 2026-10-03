@@ -19,6 +19,8 @@ export function useGameState() {
   const setLocation = useGameStore((s) => s.setLocation);
   const loadCells = useGameStore((s) => s.loadCells);
   const setLoadError = useGameStore((s) => s.setLoadError);
+  const loadError = useGameStore((s) => s.loadError);
+  const refreshState = useGameStore((s) => s.refreshState);
 
   // One-shot player init + opportunistic geolocation.
   // Geolocation never gates the game: failure is swallowed by design.
@@ -77,6 +79,7 @@ export function useGameState() {
     selectedCellId,
     selectedCell,
     loading,
+    loadError,
     claiming,
     claimError,
     playerLocation,
@@ -85,6 +88,7 @@ export function useGameState() {
     selectCell,
     claimCell,
     initPlayer,
+    refreshState,
   };
 }
 

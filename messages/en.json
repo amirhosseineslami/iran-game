@@ -49,6 +49,7 @@
     "language": "English",
     "player": "Player",
     "loading": "Loading...",
+    "retry": "Retry",
     "claim_success": "Territory claimed!",
     "claim_failed": "Failed to claim territory",
     "claim_already_owned": "This territory is already claimed",

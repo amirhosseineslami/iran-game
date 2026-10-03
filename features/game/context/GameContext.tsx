@@ -171,6 +171,7 @@ export function useGame() {
   const playerId = useGameStore((s) => s.playerId);
   const selectedCellId = useGameStore((s) => s.selectedCellId);
   const loading = useGameStore((s) => s.loading);
+  const loadError = useGameStore((s) => s.loadError);
   const claiming = useGameStore((s) => s.claiming);
   const claimError = useGameStore((s) => s.claimError);
   const ownedCount = useGameStore((s) => s.ownedCount);
@@ -186,6 +187,7 @@ export function useGame() {
     selectedCellId,
     selectedCell,
     loading,
+    loadError,
     claiming,
     claimError,
     ownedCount,

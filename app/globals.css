@@ -1,39 +1,193 @@
 @import "tailwindcss";
 
+/* ── Design System Tokens ───────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-primary: #0b0f1a;
+  --bg-surface: rgba(12, 18, 32, 0.88);
+  --bg-elevated: rgba(20, 28, 48, 0.92);
+  --bg-glass: rgba(15, 22, 40, 0.75);
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(251, 191, 36, 0.4);
+
+  /* Text */
+  --text-primary: #f0f4ff;
+  --text-secondary: rgba(200, 210, 230, 0.75);
+  --text-muted: rgba(140, 155, 180, 0.6);
+  --text-accent: #fbbf24;
+
+  /* Semantic */
+  --accent: #fbbf24;
+  --accent-dim: rgba(251, 191, 36, 0.15);
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.15);
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.15);
+  --info: #60a5fa;
+  --info-dim: rgba(96, 165, 250, 0.15);
+
+  /* Territory colors */
+  --territory-available: #22c55e;
+  --territory-available-dim: rgba(34, 197, 94, 0.2);
+  --territory-claimed: #f59e0b;
+  --territory-claimed-dim: rgba(245, 158, 11, 0.25);
+  --territory-restricted: #6b7280;
+  --territory-selected: #ef4444;
+
+  /* Player */
+  --player-dot: #60a5fa;
+  --player-glow: rgba(96, 165, 250, 0.5);
+
+  /* Typography scale */
+  --font-display: "Vazirmatn", "Noto Sans Arabic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --shadow-glow-amber: 0 0 20px rgba(251, 191, 36, 0.3);
+  --shadow-glow-green: 0 0 16px rgba(34, 197, 94, 0.3);
 }
+
+/* ── Font Imports (local Vazirmatn) ──────────────────────────────── */
+
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Base Reset ───────────────────────────────────────────────────── */
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   margin: 0;
-  min-height: 100%;
+  padding: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Typography ───────────────────────────────────────────────────── */
+
+.text-game-title {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--text-primary);
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.8;
-  }
+.text-game-stat {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
 
-  70% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
+.text-game-label {
+  font-weight: 500;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 
-  100% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
+.text-game-cell-id {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+/* ── Animations ───────────────────────────────────────────────────── */
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes toast-in {
+  from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateX(-50%) translateY(0); opacity: 1; }
+  to { transform: translateX(-50%) translateY(16px); opacity: 0; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease forwards;
+}
+
+.animate-toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.2s ease forwards;
+}
+
+/* ── Utility ──────────────────────────────────────────────────────── */
+
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+}
+
+.glass-card {
+  background: var(--bg-elevated);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-medium);
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-glass) 25%,
+    rgba(255,255,255,0.06) 50%,
+    var(--bg-glass) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }

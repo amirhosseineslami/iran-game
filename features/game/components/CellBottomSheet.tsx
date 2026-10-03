@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { GameCell } from "@/features/world/types/gameCell";
+import { X, MapPin, Lock, CheckCircle, Shield } from "lucide-react";
 
 interface CellBottomSheetProps {
   cell: GameCell | null;
@@ -10,113 +12,138 @@ interface CellBottomSheetProps {
   claimError: string | null;
   onClaim: (cellId: string) => void;
   onClose: () => void;
+  onToast?: (message: string, type: "success" | "error") => void;
 }
 
-export default function CellBottomSheet({ cell, ownedCount, claiming, claimError, onClaim, onClose }: CellBottomSheetProps) {
+export default function CellBottomSheet({
+  cell,
+  ownedCount,
+  claiming,
+  claimError,
+  onClaim,
+  onClose,
+}: CellBottomSheetProps) {
   const t = useTranslations("Game");
+  const [errorShown, setErrorShown] = useState<string | null>(null);
 
-  if (!cell) {
-    return (
-      <div className="absolute bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 z-20">
-        <div className="rounded-full bg-black/80 px-4 py-2.5 text-sm text-white/70 shadow-lg backdrop-blur border border-white/10 text-center">
-          {t("selectCellHint")}
-        </div>
-      </div>
-    );
-  }
+  if (!cell) return null;
 
   const isAvailable = cell.status === "available";
   const isPending = cell.status === "pending_claim";
   const isClaimed = cell.status === "claimed";
   const isOwner = cell.ownerId !== null;
 
-  const statusLabel = isAvailable ? t("available") : isPending ? t("pending") : isClaimed ? t("owned") : cell.status;
-  const statusColor = isAvailable
-    ? "bg-green-500/20 text-green-300 border-green-500/30"
-    : isPending
-    ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-    : isClaimed
-    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-    : "bg-gray-500/20 text-gray-300 border-gray-500/30";
+  const buildabilityLabel =
+    cell.buildability === "non_buildable"
+      ? t("claim_already_owned")
+      : cell.buildability === "restricted"
+      ? t("claim_conflict")
+      : "";
+
+  const handleClaim = () => {
+    onClaim(cell.id);
+  };
+
+  // Build area estimate from row/col (approximate for display)
+  const approximateArea = `${(0.11 * 0.11).toFixed(2)} km²`;
 
   return (
-    <div className="absolute bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 z-20">
-      <div className="pointer-events-auto rounded-2xl bg-black/92 p-4 text-white shadow-2xl backdrop-blur-xl border border-white/10">
-        {/* Header */}
-        <div className="mb-3 flex items-start justify-between">
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">{t("gameCell")}</div>
-            <div className="font-mono text-base font-bold tracking-wide">{cell.id}</div>
+    <div className="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
+      <div className="max-w-lg mx-auto px-4 pb-4 pt-2 pointer-events-auto">
+        {/* Bottom sheet */}
+        <div className="glass-card rounded-t-3xl p-5 shadow-2xl animate-slide-up">
+          {/* Drag handle */}
+          <div className="flex justify-center mb-4">
+            <div className="w-10 h-1 rounded-full bg-white/20" />
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-white/10 hover:text-white transition-colors shrink-0"
-            aria-label="Close"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-            </svg>
-          </button>
+
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="text-game-label mb-0.5">{t("gameCell")}</div>
+              <div className="text-game-cell-id font-mono">{cell.id}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                ({cell.row}, {cell.col}) · ~{approximateArea}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Status badge */}
+          <div className="mb-4">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border ${
+                isAvailable
+                  ? "bg-green-500/15 text-green-300 border-green-500/30"
+                  : isClaimed
+                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  : "bg-gray-500/15 text-gray-300 border-gray-500/30"
+              }`}
+            >
+              {isAvailable && <MapPin className="w-3 h-3" />}
+              {isClaimed && <CheckCircle className="w-3 h-3" />}
+              {isClaimed && <span className="text-xs">{t("ownedByYou")}</span>}
+              {isAvailable && <span className="text-xs">{t("available")}</span>}
+            </span>
+          </div>
+
+          {/* Owner info */}
+          {isOwner && (
+            <div className="flex items-center gap-2 mb-4 text-xs text-gray-400">
+              <Shield className="w-3.5 h-3.5 text-amber-400" />
+              <span>{t("owner")}: <span className="font-mono text-gray-300">{cell.ownerId!.slice(-6)}</span></span>
+            </div>
+          )}
+
+          {/* Claim action */}
+          {isAvailable && (
+            <button
+              type="button"
+              onClick={handleClaim}
+              disabled={claiming}
+              className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3.5 font-bold text-white text-sm transition-all hover:from-amber-400 hover:to-orange-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2"
+            >
+              {claiming ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                  <span>{t("claiming")}</span>
+                </>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4" />
+                  <span>{t("claim")}</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {isClaimed && (
+            <div className="rounded-2xl bg-green-500/15 border border-green-500/20 py-3.5 text-center">
+              <CheckCircle className="w-5 h-5 text-green-400 mx-auto mb-1" />
+              <span className="text-sm font-semibold text-green-300">{t("ownedByYou")}</span>
+            </div>
+          )}
+
+          {/* Error */}
+          {(claimError || errorShown) && (
+            <div className="mt-3 rounded-xl bg-red-500/15 border border-red-500/20 p-3 text-xs text-red-300">
+              {t(claimError || errorShown!) || (claimError || errorShown)}
+            </div>
+          )}
+
+          {/* Buildability note */}
+          {cell.buildability !== undefined && cell.buildability !== "buildable" && isAvailable && (
+            <div className="mt-2 text-[10px] text-gray-500 text-center">
+              {cell.buildability === "non_buildable" ? "🚫 " : "⚠️ "}{buildabilityLabel}
+            </div>
+          )}
         </div>
-
-        {/* Status badge */}
-        <div className="mb-3">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border ${statusColor}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${
-              isAvailable ? "bg-green-400" : isPending ? "bg-blue-400" : isClaimed ? "bg-amber-400" : "bg-gray-400"
-            }`} />
-            {statusLabel}
-          </span>
-        </div>
-
-        {/* Owner info */}
-        {isOwner && (
-          <div className="mb-3 text-xs text-gray-400 flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-            {t("owner")}: <span className="font-mono text-gray-300">{cell.ownerId!.slice(-6)}</span>
-          </div>
-        )}
-
-        {/* Actions */}
-        {isAvailable && (
-          <button
-            type="button"
-            onClick={() => onClaim(cell.id)}
-            disabled={claiming}
-            className="w-full rounded-xl bg-green-500 px-4 py-3 font-bold text-white text-sm transition-all hover:bg-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 shadow-lg shadow-green-500/20"
-          >
-            {claiming ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
-                {t("claiming")}
-              </span>
-            ) : (
-              t("claim")
-            )}
-          </button>
-        )}
-
-        {isClaimed && (
-          <div className="flex items-center justify-center gap-2 rounded-xl bg-green-500/15 py-3 text-sm text-green-300 border border-green-500/20">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            {t("ownedByYou")}
-          </div>
-        )}
-
-        {/* Error */}
-        {claimError && (
-          <div className="mt-2 rounded-lg bg-red-500/15 border border-red-500/20 p-2.5 text-xs text-red-300">
-            {t(claimError) || claimError}
-          </div>
-        )}
       </div>
     </div>
   );

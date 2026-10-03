@@ -49,6 +49,7 @@
     "language": "English",
     "player": "بازیکن",
     "loading": "در حال بارگذاری...",
+    "retry": "دوباره تلاش کنید",
     "claim_success": "قلمرو تصاحب شد!",
     "claim_failed": "خطا در تصاحب قلمرو",
     "claim_already_owned": "این قلمرو قبلاً تصاحب شده است",

@@ -12,16 +12,18 @@ const INITIAL_ZOOM = 13;
 const MAX_CELLS = 500;
 
 const SOURCE_ID = "game-cells";
+const PLAYER_SOURCE_ID = "player-location";
 const LAYER_FILL = "game-cells-fill";
 const LAYER_OUTLINE = "game-cells-outline";
 const LAYER_CLICK = "game-cells-click";
 const LAYER_SELECTED = "game-cells-selected";
-const ALL_LAYERS = [LAYER_FILL, LAYER_OUTLINE, LAYER_CLICK, LAYER_SELECTED];
+const LAYER_PLAYER = "player-marker";
+const LAYER_PLAYER_RING = "player-marker-ring";
 
 interface GameMapProps {
   cells: GameCell[];
   selectedCellId: string | null;
-  playerLocation: { latitude: number; longitude: number } | null;
+  playerLocation: { latitude: number; longitude: number; accuracy?: number } | null;
   onCellClick: (cellId: string) => void;
 }
 
@@ -35,12 +37,10 @@ export default function GameMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const clickHandlerRef = useRef(onCellClick);
 
-  // Keep the latest click handler visible to the map without re-registering it.
   useEffect(() => {
     clickHandlerRef.current = onCellClick;
   }, [onCellClick]);
 
-  // Create the map once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -50,6 +50,7 @@ export default function GameMap({
       center: TEHRAN_CENTER,
       zoom: INITIAL_ZOOM,
       attributionControl: false,
+      pitchWithRotate: false,
     });
 
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
@@ -57,21 +58,14 @@ export default function GameMap({
 
     const canvas = map.getCanvas();
     canvas.style.cursor = "grab";
-    const onMouseDown = () => {
-      canvas.style.cursor = "grabbing";
-    };
-    const onMouseUp = () => {
-      canvas.style.cursor = "";
-    };
+    const onMouseDown = () => { canvas.style.cursor = "grabbing"; };
+    const onMouseUp = () => { canvas.style.cursor = ""; };
     map.on("mousedown", onMouseDown);
     map.on("mouseup", onMouseUp);
 
-    // Single, layer-scoped click handler. Registered once, forever.
     const onClick = (e: MapLayerMouseEvent) => {
       if (!map.getLayer(LAYER_CLICK)) return;
-      const features = map.queryRenderedFeatures(e.point, {
-        layers: [LAYER_CLICK],
-      });
+      const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_CLICK] });
       if (features.length === 0) return;
       const cellId = String(features[0].properties?.cellId ?? "");
       if (cellId) clickHandlerRef.current(cellId);
@@ -87,7 +81,7 @@ export default function GameMap({
     };
   }, []);
 
-  // Build GeoJSON from cells. Downsampled for rendering.
+  // Build downsampled GeoJSON for territory rendering.
   const buildGeoJSON = useCallback((cellList: GameCell[]) => {
     const sampled =
       cellList.length > MAX_CELLS
@@ -111,12 +105,13 @@ export default function GameMap({
           cellId: cell.id,
           status: cell.status,
           ownerId: cell.ownerId ?? null,
+          buildability: cell.buildability,
         },
       })),
     };
   }, []);
 
-  // Sync cells into the map. Sets up layers once; updates data thereafter.
+  // Sync territory cells into the map.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || cells.length === 0) return;
@@ -135,6 +130,7 @@ export default function GameMap({
 
       map.addSource(SOURCE_ID, { type: "geojson", data: geojson });
 
+      // Territory fill — color by status
       map.addLayer({
         id: LAYER_FILL,
         type: "fill",
@@ -145,13 +141,22 @@ export default function GameMap({
             ["==", ["get", "status"], "claimed"],
             "#f59e0b",
             ["==", ["get", "status"], "pending_claim"],
-            "#3b82f6",
+            "#60a5fa",
             "#22c55e",
           ],
-          "fill-opacity": 0.3,
+          "fill-opacity": [
+            "case",
+            ["==", ["get", "status"], "claimed"],
+            0.45,
+            ["==", ["get", "status"], "available"],
+            0.18,
+            0.12,
+          ],
+          "fill-outline-color": "#0f172a",
         },
       });
 
+      // Territory outline
       map.addLayer({
         id: LAYER_OUTLINE,
         type: "line",
@@ -161,20 +166,23 @@ export default function GameMap({
             "case",
             ["==", ["get", "status"], "claimed"],
             "#d97706",
-            "#16a34a",
+            "#15803d",
           ],
-          "line-width": 0.8,
-          "line-opacity": 0.8,
+          "line-width": 0.6,
+          "line-opacity": 0.6,
         },
       });
 
+      // Click target (invisible, above everything)
       map.addLayer({
         id: LAYER_CLICK,
         type: "fill",
         source: SOURCE_ID,
         paint: { "fill-color": "transparent" },
+        layout: { visibility: "visible" },
       });
 
+      // Selected highlight — thick glowing border
       map.addLayer({
         id: LAYER_SELECTED,
         type: "line",
@@ -182,7 +190,8 @@ export default function GameMap({
         paint: {
           "line-color": "#ef4444",
           "line-width": 3,
-          "line-opacity": 1,
+          "line-opacity": 0.9,
+          "line-blur": 2,
         },
         filter: ["==", "id", selectedCellId ?? ""],
       });
@@ -195,7 +204,7 @@ export default function GameMap({
     }
   }, [cells, buildGeoJSON, selectedCellId]);
 
-  // Update selection filter without touching source/layers.
+  // Update selection filter efficiently.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -203,16 +212,95 @@ export default function GameMap({
     try {
       map.setFilter(LAYER_SELECTED, ["==", "id", selectedCellId ?? ""]);
     } catch {
-      /* map may be mid-teardown; ignore */
+      /* mid-teardown; ignore */
     }
   }, [selectedCellId]);
 
-  // Center on player when location becomes available.
+  // Player marker — update or create.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !playerLocation) return;
+
+    const coords: [number, number] = [
+      playerLocation.longitude,
+      playerLocation.latitude,
+    ];
+
+    const addPlayerMarker = () => {
+      if (map.getSource(PLAYER_SOURCE_ID)) return;
+
+      map.addSource(PLAYER_SOURCE_ID, {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: coords },
+              properties: {},
+            },
+          ],
+        },
+      });
+
+      // Outer glow ring
+      map.addLayer({
+        id: LAYER_PLAYER_RING,
+        type: "circle",
+        source: PLAYER_SOURCE_ID,
+        paint: {
+          "circle-radius": 12,
+          "circle-color": "#60a5fa",
+          "circle-opacity": 0.2,
+          "circle-blur": 1,
+        },
+      });
+
+      // Core dot
+      map.addLayer({
+        id: LAYER_PLAYER,
+        type: "circle",
+        source: PLAYER_SOURCE_ID,
+        paint: {
+          "circle-radius": 6,
+          "circle-color": "#60a5fa",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#0f172a",
+        },
+      });
+    };
+
+    if (map.isStyleLoaded()) {
+      addPlayerMarker();
+    } else {
+      map.once("load", addPlayerMarker);
+    }
+
+    // Update position without re-adding layers
+    try {
+      const src = map.getSource(PLAYER_SOURCE_ID) as
+        | { setData: (d: unknown) => void }
+        | undefined;
+      if (src) {
+        src.setData({
+          type: "FeatureCollection",
+          features: [{
+            type: "Feature",
+            geometry: { type: "Point", coordinates: coords },
+            properties: {},
+          }],
+        });
+      }
+    } catch { /* ignore */ }
+  }, [playerLocation]);
+
+  // Fly to player when location becomes available.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !playerLocation || !map.isStyleLoaded()) return;
     map.flyTo({
       center: [playerLocation.longitude, playerLocation.latitude],
+      zoom: Math.max(map.getZoom(), 14),
       duration: 800,
       essential: true,
     });
