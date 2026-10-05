@@ -16,21 +16,22 @@ beforeEach(() => {
   (globalThis as { __iranGameStore?: unknown }).__iranGameStore = undefined;
 });
 
-function findBuildableCell(): string {
-  const cells = getAllCells().filter(
+async function findBuildableCell(): Promise<string> {
+  const cells = await getAllCells();
+  const found = cells.filter(
     (c) => c.buildability === "buildable" && c.status === "available"
   );
-  return cells[0]?.id ?? "";
+  return found[0]?.id ?? "";
 }
 
 describe("API — GET /api/cells (via store)", () => {
-  it("returns all 10,201 cells", () => {
-    const cells = getAllCells();
+  it("returns all 10,201 cells", async () => {
+    const cells = await getAllCells();
     expect(cells.length).toBe(10201);
   });
 
-  it("returns cells with required fields", () => {
-    const [cell] = getAllCells();
+  it("returns cells with required fields", async () => {
+    const [cell] = await getAllCells();
     expect(cell).toHaveProperty("id");
     expect(cell).toHaveProperty("row");
     expect(cell).toHaveProperty("col");
@@ -39,8 +40,8 @@ describe("API — GET /api/cells (via store)", () => {
     expect(cell).toHaveProperty("buildability");
   });
 
-  it("returns stats with correct counts", () => {
-    const cells = getAllCells();
+  it("returns stats with correct counts", async () => {
+    const cells = await getAllCells();
     const stats = {
       total: cells.length,
       available: cells.filter((c) => c.status === "available").length,
@@ -55,8 +56,8 @@ describe("API — GET /api/cells (via store)", () => {
 });
 
 describe("API — GET /api/cells?bbox (via store)", () => {
-  it("filters cells by bounding box", () => {
-    const allCells = getAllCells();
+  it("filters cells by bounding box", async () => {
+    const allCells = await getAllCells();
     const bbox = "51.38,35.68,51.42,35.72";
     const [minLng, minLat, maxLng, maxLat] = bbox.split(",").map(Number);
 
@@ -78,11 +79,11 @@ describe("API — GET /api/cells?bbox (via store)", () => {
 });
 
 describe("API — POST /api/claims (via store)", () => {
-  it("claims a buildable cell successfully", () => {
-    const cellId = findBuildableCell();
+  it("claims a buildable cell successfully", async () => {
+    const cellId = await findBuildableCell();
     expect(cellId).toBeTruthy();
 
-    const outcome = attemptClaim({
+    const outcome = await attemptClaim({
       cellId,
       playerId: "test-player",
       timestamp: Date.now(),
@@ -95,11 +96,11 @@ describe("API — POST /api/claims (via store)", () => {
     }
   });
 
-  it("returns duplicate flag for same sessionId", () => {
-    const cellId = findBuildableCell();
+  it("returns duplicate flag for same sessionId", async () => {
+    const cellId = await findBuildableCell();
     const sessionId = `test-session-${Date.now()}`;
 
-    const first = attemptClaim({
+    const first = await attemptClaim({
       cellId,
       playerId: "test-player",
       timestamp: Date.now(),
@@ -108,7 +109,7 @@ describe("API — POST /api/claims (via store)", () => {
     expect(first.ok).toBe(true);
     if (first.ok) expect(first.duplicate).toBe(false);
 
-    const second = attemptClaim({
+    const second = await attemptClaim({
       cellId,
       playerId: "test-player",
       timestamp: Date.now() + 1,
@@ -118,13 +119,14 @@ describe("API — POST /api/claims (via store)", () => {
     if (second.ok) expect(second.duplicate).toBe(true);
   });
 
-  it("rejects claim on non-buildable cell", () => {
-    const nonBuildable = getAllCells().find(
+  it("rejects claim on non-buildable cell", async () => {
+    const allCells = await getAllCells();
+    const nonBuildable = allCells.find(
       (c) => c.buildability === "non_buildable" && c.status === "available"
     );
     expect(nonBuildable).toBeTruthy();
 
-    const outcome = attemptClaim({
+    const outcome = await attemptClaim({
       cellId: nonBuildable!.id,
       playerId: "test-player",
       timestamp: Date.now(),
@@ -134,11 +136,11 @@ describe("API — POST /api/claims (via store)", () => {
     if (!outcome.ok) expect(outcome.reason).toBe("CELL_NOT_BUILDABLE");
   });
 
-  it("rejects claim on already-claimed cell", () => {
-    const cellId = findBuildableCell();
-    attemptClaim({ cellId, playerId: "player-a", timestamp: Date.now() });
+  it("rejects claim on already-claimed cell", async () => {
+    const cellId = await findBuildableCell();
+    await attemptClaim({ cellId, playerId: "player-a", timestamp: Date.now() });
 
-    const outcome = attemptClaim({
+    const outcome = await attemptClaim({
       cellId,
       playerId: "player-b",
       timestamp: Date.now(),
@@ -148,8 +150,8 @@ describe("API — POST /api/claims (via store)", () => {
     if (!outcome.ok) expect(outcome.reason).toBe("CELL_NOT_AVAILABLE");
   });
 
-  it("rejects claim on non-existent cell", () => {
-    const outcome = attemptClaim({
+  it("rejects claim on non-existent cell", async () => {
+    const outcome = await attemptClaim({
       cellId: "does-not-exist",
       playerId: "test-player",
       timestamp: Date.now(),
@@ -161,20 +163,20 @@ describe("API — POST /api/claims (via store)", () => {
 });
 
 describe("API — DELETE /api/claims (via store)", () => {
-  it("releases a claimed cell by owner", () => {
-    const cellId = findBuildableCell();
-    attemptClaim({ cellId, playerId: "test-player", timestamp: Date.now() });
+  it("releases a claimed cell by owner", async () => {
+    const cellId = await findBuildableCell();
+    await attemptClaim({ cellId, playerId: "test-player", timestamp: Date.now() });
 
-    const ok = releaseClaim(cellId, "test-player");
+    const ok = await releaseClaim(cellId, "test-player");
     expect(ok).toBe(true);
-    expect(getCellById(cellId)?.status).toBe("available");
+    expect((await getCellById(cellId))?.status).toBe("available");
   });
 
-  it("refuses release by non-owner", () => {
-    const cellId = findBuildableCell();
-    attemptClaim({ cellId, playerId: "player-a", timestamp: Date.now() });
+  it("refuses release by non-owner", async () => {
+    const cellId = await findBuildableCell();
+    await attemptClaim({ cellId, playerId: "player-a", timestamp: Date.now() });
 
-    const ok = releaseClaim(cellId, "player-b");
+    const ok = await releaseClaim(cellId, "player-b");
     expect(ok).toBe(false);
   });
 });

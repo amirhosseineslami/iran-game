@@ -1,41 +1,28 @@
 import { NextResponse } from "next/server";
-import type { GameCell } from "@/features/world/types/gameCell";
-import { getAllCells } from "@/features/world/server/store";
+import { getAllCells, getCellsInBbox, type Bbox } from "@/features/world/server/store";
 
-function getCellCenter(cell: GameCell): { lng: number; lat: number } {
-  const ring = cell.polygon[0];
-  let sumLng = 0;
-  let sumLat = 0;
-  for (const [lng, lat] of ring) {
-    sumLng += lng;
-    sumLat += lat;
+function parseBbox(raw: string): Bbox | null {
+  const [minLng, minLat, maxLng, maxLat] = raw.split(",").map(Number);
+  if (
+    Number.isNaN(minLng) ||
+    Number.isNaN(minLat) ||
+    Number.isNaN(maxLng) ||
+    Number.isNaN(maxLat)
+  ) {
+    return null;
   }
-  return { lng: sumLng / ring.length, lat: sumLat / ring.length };
+  return { minLng, minLat, maxLng, maxLat };
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = parseInt(searchParams.get("limit") || "0", 10);
-  const bbox = searchParams.get("bbox");
+  const bboxRaw = searchParams.get("bbox");
 
-  let cells = getAllCells();
-
-  if (bbox) {
-    const [minLng, minLat, maxLng, maxLat] = bbox.split(",").map(Number);
-    if (
-      !Number.isNaN(minLng) &&
-      !Number.isNaN(minLat) &&
-      !Number.isNaN(maxLng) &&
-      !Number.isNaN(maxLat)
-    ) {
-      cells = cells.filter((cell) => {
-        const c = getCellCenter(cell);
-        return (
-          c.lng >= minLng && c.lng <= maxLng && c.lat >= minLat && c.lat <= maxLat
-        );
-      });
-    }
-  }
+  // Viewport queries are pushed down to the backend (PostGIS index for the
+  // postgres path, in-memory filter otherwise).
+  const bbox = bboxRaw ? parseBbox(bboxRaw) : null;
+  let cells = bbox ? await getCellsInBbox(bbox) : await getAllCells();
 
   if (limit > 0) {
     cells = cells.slice(0, limit);

@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Iran Game
+
+A location-based territory game built on the real geography of Iran
+(Next.js + TypeScript + MapLibre GL + PostgreSQL/PostGIS).
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20+ (the Hermes-bundled Node 22 works: `HOME=$HOME ~/.hermes/node/bin/node`)
+- PostgreSQL 16 + PostGIS 3.4 — easiest via Docker:
+
+```bash
+docker run -d --name iran-game-db \
+  -e POSTGRES_PASSWORD='***' \
+  -e POSTGRES_DB=iran_game \
+  -p 127.0.0.1:5432:5432 \
+  --restart unless-stopped \
+  postgis/postgis:16-3.4
+```
+
+### Configure
+
+`.env.local` (gitignored):
+
+```
+DATABASE_URL=postgresql://postgres:***@localhost:5432/iran_game
+TEST_DATABASE_URL=postgresql://postgres:***@localhost:5432/iran_game_test
+```
+
+### Set up the database
+
+```bash
+npm run db:setup      # creates the DB if missing + applies migrations
+# test DB:
+node scripts/setup-db.mjs postgresql://postgres:***@localhost:5432/iran_game_test
+```
+
+### Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# or: HOME=$HOME ~/.hermes/node/bin/node ./node_modules/next/dist/bin/next dev -p 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Persistence
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The game state (cells + claims) is served through a single gateway
+(`features/world/server/store.ts`) that resolves one of two backends at
+startup:
 
-## Learn More
+| mode             | when                                        | claims survive restart? |
+| ---------------- | ------------------------------------------- | ----------------------- |
+| `postgres`       | `DATABASE_URL` set and reachable            | yes                     |
+| `memory`         | `DATABASE_URL` not set                      | no (logged warning)     |
+| `memory-fallback`| `DATABASE_URL` set but unreachable          | no (logged error)       |
 
-To learn more about Next.js, take a look at the following resources:
+The active mode is always visible at `GET /api/health`. The fallback is
+never silent.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GET /api/cells?bbox=minLng,minLat,maxLng,maxLat&limit=n` — viewport cells
+- `GET /api/claims` — world stats
+- `POST /api/claims` — claim a cell (`sessionId` = idempotency token)
+- `DELETE /api/claims` — release a cell you own
+- `GET /api/health` — persistence/diagnostics status
 
-## Deploy on Vercel
+## Tests
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Unit + integration + backend contract tests. The contract suite runs the
+same behavioral tests against the memory backend (always) and the
+PostgreSQL backend (when `TEST_DATABASE_URL` resolves), including
+concurrent-claim and restart-survival checks.

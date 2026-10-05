@@ -1,122 +1,56 @@
-import type { GameCell, LngLat } from "@/features/world/types/gameCell";
-import { generateTestFeatures } from "@/features/world/services/__fixtures__/testGeography";
-import { generateCellsFromGeography } from "@/features/world/services/generateBuildableCells";
+import type { GameCell } from "@/features/world/types/gameCell";
+import { getBackendState, type PersistenceMode } from "./backends";
+import type { Bbox, ClaimAttempt, ClaimOutcome } from "./backends/cellBackend";
 
 /**
- * Single in-memory store for the development build.
- * Both /api/cells and /api/claims read and write through this module,
- * so the two routes can never disagree about state.
+ * The single gateway for game-cell state used by the API routes.
  *
- * This module is replaced by a Postgres-backed repository in a later
- * milestone; the API surface below is intentionally small so that
- * migration is a straight swap.
+ * Resolves the storage backend once per process (PostgreSQL when
+ * DATABASE_URL is configured and reachable, otherwise the in-memory
+ * fallback — see backends/index.ts for the exact rules) and exposes a
+ * small async API. Both /api/cells and /api/claims read and write through
+ * this module, so the two routes can never disagree about state.
+ *
+ * Exported names match the original synchronous store so call sites and
+ * tests only needed `await` added.
  */
 
-interface StoreState {
-  cells: Map<string, GameCell>;
-  processedSessions: Set<string>;
-  seeded: boolean;
+export type { Bbox, ClaimAttempt, ClaimOutcome };
+
+export async function getAllCells(): Promise<GameCell[]> {
+  return (await getBackendState()).backend.getAllCells();
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __iranGameStore: StoreState | undefined;
+export async function getCellsInBbox(bbox: Bbox): Promise<GameCell[]> {
+  return (await getBackendState()).backend.getCellsInBbox(bbox);
 }
 
-function seed(): StoreState {
-  const features = generateTestFeatures();
-  const cells = generateCellsFromGeography(features);
-  const map = new Map<string, GameCell>();
-  for (const cell of cells) {
-    map.set(cell.id, cell);
-  }
-  return { cells: map, processedSessions: new Set(), seeded: true };
+export async function getCellById(id: string): Promise<GameCell | null> {
+  return (await getBackendState()).backend.getCellById(id);
 }
 
-function getStore(): StoreState {
-  if (!globalThis.__iranGameStore || !globalThis.__iranGameStore.seeded) {
-    globalThis.__iranGameStore = seed();
-  }
-  return globalThis.__iranGameStore;
+export async function getCellsForPlayer(playerId: string): Promise<GameCell[]> {
+  return (await getBackendState()).backend.getCellsForPlayer(playerId);
 }
 
-export function getAllCells(): GameCell[] {
-  return Array.from(getStore().cells.values());
+export async function replaceCell(cell: GameCell): Promise<void> {
+  return (await getBackendState()).backend.replaceCell(cell);
 }
 
-export function getCellById(id: string): GameCell | null {
-  return getStore().cells.get(id) ?? null;
+export async function attemptClaim(input: ClaimAttempt): Promise<ClaimOutcome> {
+  return (await getBackendState()).backend.attemptClaim(input);
 }
 
-export function getCellsForPlayer(playerId: string): GameCell[] {
-  const out: GameCell[] = [];
-  for (const cell of getStore().cells.values()) {
-    if (cell.ownerId === playerId) out.push(cell);
-  }
-  return out;
+export async function releaseClaim(cellId: string, playerId: string): Promise<boolean> {
+  return (await getBackendState()).backend.releaseClaim(cellId, playerId);
 }
 
-export function replaceCell(cell: GameCell): void {
-  getStore().cells.set(cell.id, cell);
-}
-
-export interface ClaimAttempt {
-  cellId: string;
-  playerId: string;
-  timestamp: number;
-  sessionId?: string;
-}
-
-export type ClaimOutcome =
-  | { ok: true; cell: GameCell; duplicate: boolean }
-  | { ok: false; reason: string; duplicate: boolean };
-
-export function attemptClaim(input: ClaimAttempt): ClaimOutcome {
-  // Idempotency: if this sessionId was already processed, return the original result
-  if (input.sessionId) {
-    const store = getStore();
-    if (store.processedSessions.has(input.sessionId)) {
-      const cell = getCellById(input.cellId);
-      if (cell && cell.status === "claimed" && cell.ownerId === input.playerId) {
-        return { ok: true, cell, duplicate: true };
-      }
-    }
-  }
-
-  const cell = getCellById(input.cellId);
-  if (!cell) return { ok: false, reason: "CELL_NOT_FOUND", duplicate: false };
-  if (cell.status !== "available") return { ok: false, reason: "CELL_NOT_AVAILABLE", duplicate: false };
-  if (cell.buildability === "non_buildable" || cell.buildability === "restricted") {
-    return { ok: false, reason: "CELL_NOT_BUILDABLE", duplicate: false };
-  }
-
-  const updated: GameCell = {
-    ...cell,
-    status: "claimed",
-    ownerId: input.playerId,
-    claimedAt: input.timestamp,
-  };
-  replaceCell(updated);
-
-  // Mark session as processed for idempotency
-  if (input.sessionId) {
-    getStore().processedSessions.add(input.sessionId);
-  }
-
-  return { ok: true, cell: updated, duplicate: false };
-}
-
-export function releaseClaim(cellId: string, playerId: string): boolean {
-  const cell = getCellById(cellId);
-  if (!cell) return false;
-  if (cell.ownerId !== playerId) return false;
-  if (cell.status !== "claimed") return false;
-
-  replaceCell({
-    ...cell,
-    status: "available",
-    ownerId: null,
-    claimedAt: undefined,
-  });
-  return true;
+/** Persistence status for GET /api/health — never exposes credentials. */
+export async function getPersistenceStatus(): Promise<{
+  mode: PersistenceMode;
+  kind: string;
+  detail: string;
+}> {
+  const state = await getBackendState();
+  return { mode: state.mode, kind: state.backend.kind, detail: state.detail };
 }

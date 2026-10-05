@@ -27,7 +27,7 @@ function isRateLimited(playerId: string): boolean {
 
 // GET /api/claims — world stats
 export async function GET() {
-  const cells = getAllCells();
+  const cells = await getAllCells();
   const claimed = cells.filter((c) => c.status === "claimed").length;
   const pending = cells.filter((c) => c.status === "pending_claim").length;
   const available = cells.filter((c) => c.status === "available").length;
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
   logger.claimAttempt({ playerId, cellId, sessionId });
 
-  const outcome = attemptClaim({ cellId, playerId, timestamp, sessionId });
+  const outcome = await attemptClaim({ cellId, playerId, timestamp, sessionId });
   const durationMs = Date.now() - startTime;
 
   if (outcome.ok) {
@@ -114,7 +114,7 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const ok = releaseClaim(cellId, playerId);
+  const ok = await releaseClaim(cellId, playerId);
   if (!ok) {
     return NextResponse.json({ error: "RELEASE_FAILED" }, { status: 400 });
   }

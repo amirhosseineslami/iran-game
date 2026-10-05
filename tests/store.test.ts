@@ -12,15 +12,17 @@ beforeEach(() => {
   (globalThis as { __iranGameStore?: unknown }).__iranGameStore = undefined;
 });
 
-function findBuildableCellIds(n: number): string[] {
-  return getAllCells()
+async function findBuildableCellIds(n: number): Promise<string[]> {
+  const cells = await getAllCells();
+  return cells
     .filter((c) => c.buildability === "buildable" && c.status === "available")
     .slice(0, n)
     .map((c) => c.id);
 }
 
-function findNonBuildableCellId(): string | null {
-  const cell = getAllCells().find(
+async function findNonBuildableCellId(): Promise<string | null> {
+  const cells = await getAllCells();
+  const cell = cells.find(
     (c) =>
       c.buildability === "non_buildable" || c.buildability === "restricted"
   );
@@ -28,12 +30,13 @@ function findNonBuildableCellId(): string | null {
 }
 
 describe("store — getAllCells", () => {
-  it("returns the full 101x101 grid", () => {
-    expect(getAllCells().length).toBe(10201);
+  it("returns the full 101x101 grid", async () => {
+    const cells = await getAllCells();
+    expect(cells.length).toBe(10201);
   });
 
-  it("returns cells with the expected shape", () => {
-    const [cell] = getAllCells();
+  it("returns cells with the expected shape", async () => {
+    const [cell] = await getAllCells();
     expect(cell).toHaveProperty("id");
     expect(cell).toHaveProperty("row");
     expect(cell).toHaveProperty("col");
@@ -44,23 +47,23 @@ describe("store — getAllCells", () => {
 });
 
 describe("store — getCellById", () => {
-  it("returns a cell for a known id", () => {
-    const cell = getCellById("cell-0-0");
+  it("returns a cell for a known id", async () => {
+    const cell = await getCellById("cell-0-0");
     expect(cell).not.toBeNull();
     expect(cell?.id).toBe("cell-0-0");
   });
 
-  it("returns null for an unknown id", () => {
-    expect(getCellById("does-not-exist")).toBeNull();
+  it("returns null for an unknown id", async () => {
+    expect(await getCellById("does-not-exist")).toBeNull();
   });
 });
 
 describe("store — attemptClaim", () => {
-  it("claims an available, buildable cell", () => {
-    const [id] = findBuildableCellIds(1);
+  it("claims an available, buildable cell", async () => {
+    const [id] = await findBuildableCellIds(1);
     expect(id).toBeDefined();
 
-    const outcome = attemptClaim({
+    const outcome = await attemptClaim({
       cellId: id,
       playerId: "player-a",
       timestamp: 1000,
@@ -74,8 +77,8 @@ describe("store — attemptClaim", () => {
     }
   });
 
-  it("rejects an unknown cell with CELL_NOT_FOUND", () => {
-    const outcome = attemptClaim({
+  it("rejects an unknown cell with CELL_NOT_FOUND", async () => {
+    const outcome = await attemptClaim({
       cellId: "does-not-exist",
       playerId: "player-a",
       timestamp: 1000,
@@ -84,11 +87,11 @@ describe("store — attemptClaim", () => {
     if (!outcome.ok) expect(outcome.reason).toBe("CELL_NOT_FOUND");
   });
 
-  it("rejects a non-buildable cell with CELL_NOT_BUILDABLE", () => {
-    const id = findNonBuildableCellId();
+  it("rejects a non-buildable cell with CELL_NOT_BUILDABLE", async () => {
+    const id = await findNonBuildableCellId();
     expect(id).not.toBeNull();
 
-    const outcome = attemptClaim({
+    const outcome = await attemptClaim({
       cellId: id as string,
       playerId: "player-a",
       timestamp: 1000,
@@ -97,17 +100,17 @@ describe("store — attemptClaim", () => {
     if (!outcome.ok) expect(outcome.reason).toBe("CELL_NOT_BUILDABLE");
   });
 
-  it("rejects a second claim on the same cell with CELL_NOT_AVAILABLE", () => {
-    const [id] = findBuildableCellIds(1);
+  it("rejects a second claim on the same cell with CELL_NOT_AVAILABLE", async () => {
+    const [id] = await findBuildableCellIds(1);
 
-    const first = attemptClaim({
+    const first = await attemptClaim({
       cellId: id,
       playerId: "player-a",
       timestamp: 1000,
     });
     expect(first.ok).toBe(true);
 
-    const second = attemptClaim({
+    const second = await attemptClaim({
       cellId: id,
       playerId: "player-b",
       timestamp: 2000,
@@ -118,48 +121,48 @@ describe("store — attemptClaim", () => {
 });
 
 describe("store — releaseClaim", () => {
-  it("releases a cell owned by the caller", () => {
-    const [id] = findBuildableCellIds(1);
-    attemptClaim({ cellId: id, playerId: "player-a", timestamp: 1000 });
+  it("releases a cell owned by the caller", async () => {
+    const [id] = await findBuildableCellIds(1);
+    await attemptClaim({ cellId: id, playerId: "player-a", timestamp: 1000 });
 
-    expect(releaseClaim(id, "player-a")).toBe(true);
-    expect(getCellById(id)?.status).toBe("available");
-    expect(getCellById(id)?.ownerId).toBeNull();
+    expect(await releaseClaim(id, "player-a")).toBe(true);
+    expect((await getCellById(id))?.status).toBe("available");
+    expect((await getCellById(id))?.ownerId).toBeNull();
   });
 
-  it("refuses to release a cell owned by someone else", () => {
-    const [id] = findBuildableCellIds(1);
-    attemptClaim({ cellId: id, playerId: "player-a", timestamp: 1000 });
+  it("refuses to release a cell owned by someone else", async () => {
+    const [id] = await findBuildableCellIds(1);
+    await attemptClaim({ cellId: id, playerId: "player-a", timestamp: 1000 });
 
-    expect(releaseClaim(id, "player-b")).toBe(false);
-    expect(getCellById(id)?.status).toBe("claimed");
-    expect(getCellById(id)?.ownerId).toBe("player-a");
+    expect(await releaseClaim(id, "player-b")).toBe(false);
+    expect((await getCellById(id))?.status).toBe("claimed");
+    expect((await getCellById(id))?.ownerId).toBe("player-a");
   });
 
-  it("returns false for an unknown cell", () => {
-    expect(releaseClaim("does-not-exist", "player-a")).toBe(false);
+  it("returns false for an unknown cell", async () => {
+    expect(await releaseClaim("does-not-exist", "player-a")).toBe(false);
   });
 });
 
 describe("store — getCellsForPlayer", () => {
-  it("returns only cells owned by the requested player", () => {
-    const ids = findBuildableCellIds(3);
+  it("returns only cells owned by the requested player", async () => {
+    const ids = await findBuildableCellIds(3);
     expect(ids.length).toBe(3);
 
-    attemptClaim({ cellId: ids[0], playerId: "player-a", timestamp: 1000 });
-    attemptClaim({ cellId: ids[1], playerId: "player-a", timestamp: 1001 });
-    attemptClaim({ cellId: ids[2], playerId: "player-b", timestamp: 1002 });
+    await attemptClaim({ cellId: ids[0], playerId: "player-a", timestamp: 1000 });
+    await attemptClaim({ cellId: ids[1], playerId: "player-a", timestamp: 1001 });
+    await attemptClaim({ cellId: ids[2], playerId: "player-b", timestamp: 1002 });
 
-    const aCells = getCellsForPlayer("player-a");
+    const aCells = await getCellsForPlayer("player-a");
     expect(aCells.length).toBe(2);
     expect(aCells.every((c) => c.ownerId === "player-a")).toBe(true);
 
-    const bCells = getCellsForPlayer("player-b");
+    const bCells = await getCellsForPlayer("player-b");
     expect(bCells.length).toBe(1);
     expect(bCells[0].id).toBe(ids[2]);
   });
 
-  it("returns an empty array for an unknown player", () => {
-    expect(getCellsForPlayer("nobody").length).toBe(0);
+  it("returns an empty array for an unknown player", async () => {
+    expect((await getCellsForPlayer("nobody")).length).toBe(0);
   });
 });
