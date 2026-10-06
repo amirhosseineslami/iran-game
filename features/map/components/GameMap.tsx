@@ -9,7 +9,7 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
 const TEHRAN_CENTER = [51.389, 35.6892] as [number, number];
 const INITIAL_ZOOM = 13;
-const MAX_CELLS = 500;
+const MAX_CELLS = 12_000; // safety cap; the current world has 10,201 cells
 const DEBOUNCE_MS = 300;
 
 const SOURCE_ID = "game-cells";
@@ -109,14 +109,14 @@ export default function GameMap({
     };
   }, []);
 
-  // Build downsampled GeoJSON for territory rendering.
+  // Build GeoJSON for territory rendering.
+  //
+  // Render ALL cells up to a high safety cap: MapLibre renders GeoJSON
+  // sources on the GPU, and sampling used to leave gaps that made cells
+  // impossible to click. If payloads ever exceed the cap, switch to
+  // viewport-filtered data (TASK 21) instead of sampling.
   const buildGeoJSON = useCallback((cellList: GameCell[]) => {
-    const sampled =
-      cellList.length > MAX_CELLS
-        ? cellList
-            .filter((_, i) => i % Math.ceil(cellList.length / MAX_CELLS) === 0)
-            .slice(0, MAX_CELLS)
-        : cellList;
+    const sampled = cellList.length > MAX_CELLS ? cellList.slice(0, MAX_CELLS) : cellList;
 
     return {
       type: "FeatureCollection" as const,
@@ -140,25 +140,34 @@ export default function GameMap({
   }, []);
 
   // Sync territory cells into the map.
+  //
+  // Resilience: the game layer must NOT depend on external basemap tiles.
+  // `map.isStyleLoaded()` / the 'load' event stay false while raster tiles
+  // are pending (slow or blocked network), so we apply as soon as the style
+  // JSON is parsed ('styledata') and keep retrying until it succeeds.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || cells.length === 0) return;
 
     const geojson = buildGeoJSON(cells);
+    let cancelled = false;
 
-    const applyData = () => {
-      const existing = map.getSource(SOURCE_ID) as
-        | { setData: (data: unknown) => void }
-        | undefined;
+    const applyData = (): boolean => {
+      if (cancelled) return true;
+      try {
+        // Style JSON must be parsed before sources/layers can be added.
+        if (!map.getStyle()) return false;
 
-      if (existing) {
-        existing.setData(geojson);
-        return;
-      }
+        const existing = map.getSource(SOURCE_ID) as
+          | { setData: (data: unknown) => void }
+          | undefined;
+        if (existing) {
+          existing.setData(geojson);
+        } else {
+          map.addSource(SOURCE_ID, { type: "geojson", data: geojson });
+        }
 
-      map.addSource(SOURCE_ID, { type: "geojson", data: geojson });
-
-      map.addLayer({
+        if (!map.getLayer(LAYER_FILL)) map.addLayer({
         id: LAYER_FILL,
         type: "fill",
         source: SOURCE_ID,
@@ -183,7 +192,7 @@ export default function GameMap({
         },
       });
 
-      map.addLayer({
+      if (!map.getLayer(LAYER_OUTLINE)) map.addLayer({
         id: LAYER_OUTLINE,
         type: "line",
         source: SOURCE_ID,
@@ -199,7 +208,7 @@ export default function GameMap({
         },
       });
 
-      map.addLayer({
+      if (!map.getLayer(LAYER_CLICK)) map.addLayer({
         id: LAYER_CLICK,
         type: "fill",
         source: SOURCE_ID,
@@ -207,7 +216,7 @@ export default function GameMap({
         layout: { visibility: "visible" },
       });
 
-      map.addLayer({
+      if (!map.getLayer(LAYER_SELECTED)) map.addLayer({
         id: LAYER_SELECTED,
         type: "line",
         source: SOURCE_ID,
@@ -219,13 +228,30 @@ export default function GameMap({
         },
         filter: ["==", "id", selectedCellId ?? ""],
       });
+        return true;
+      } catch {
+        // Style not ready (or mid-teardown) — retried via styledata below.
+        return false;
+      }
     };
 
-    if (map.isStyleLoaded()) {
-      applyData();
-    } else {
-      map.once("load", applyData);
+    if (applyData()) {
+      return () => {
+        cancelled = true;
+      };
     }
+
+    // Style JSON not parsed yet — retry on every styledata until applied.
+    const onStyleData = () => {
+      applyData();
+    };
+    map.on("styledata", onStyleData);
+    map.once("load", onStyleData);
+    return () => {
+      cancelled = true;
+      map.off("styledata", onStyleData);
+      map.off("load", onStyleData);
+    };
   }, [cells, buildGeoJSON, selectedCellId]);
 
   // Update selection filter efficiently.

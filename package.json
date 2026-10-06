@@ -11,6 +11,7 @@
     "prebuild": "node ./scripts/copy-maplibre-worker.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "db:setup": "node ./scripts/setup-db.mjs"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
