@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Marker } from "maplibre-gl";
 import { useTranslations } from "next-intl";
 import type { PlayerLocation } from "../types/playerLocation";
@@ -12,13 +12,10 @@ interface PlayerMarkerProps {
 
 export default function PlayerMarker({ location }: PlayerMarkerProps) {
   const t = useTranslations("Player");
-  const [show, setShow] = useState(false);
   const markerRef = useRef<Marker | null>(null);
 
-  // Sync show state from location
-  useEffect(() => {
-    setShow(location !== null);
-  }, [location]);
+  // `show` is a pure derivation of whether a location is known.
+  const show = location !== null;
 
   // Create/remove marker
   useEffect(() => {

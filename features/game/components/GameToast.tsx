@@ -15,16 +15,22 @@ interface GameToastProps {
 
 export default function GameToast({ toast, onDismiss }: GameToastProps) {
   const [visible, setVisible] = useState(false);
+  const [prevToast, setPrevToast] = useState<ToastData | null>(null);
+
+  // Render-time adjustment (React-sanctioned): when a new toast arrives,
+  // start the entry animation. No effect needed for this part.
+  if (prevToast !== toast) {
+    setPrevToast(toast);
+    if (toast) setVisible(true);
+  }
 
   useEffect(() => {
-    if (toast) {
-      setVisible(true);
-      const timer = setTimeout(() => {
-        setVisible(false);
-        setTimeout(onDismiss, 200);
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(onDismiss, 200);
+    }, 2500);
+    return () => clearTimeout(timer);
   }, [toast, onDismiss]);
 
   if (!toast) return null;

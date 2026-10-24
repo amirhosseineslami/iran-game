@@ -1,4 +1,4 @@
-import type { GeographicFeature } from "@/features/world/types/geographicFeature";
+import type { GeographicFeature, GeographicCategory, BuildabilityStatus } from "@/features/world/types/geographicFeature";
 
 /**
  * Validate geographic feature geometry
@@ -99,7 +99,7 @@ export function calculateAreaMeters(polygon: number[][][]): number {
 export function classifyFeature(
   sourceType: string,
   tags: Record<string, string>
-): { category: string; buildability: string } {
+): { category: GeographicCategory; buildability: BuildabilityStatus } {
   // Water features - always non-buildable
   if (sourceType === 'water' || sourceType === 'waterway' || 
       tags.water || tags.covered === 'water') {

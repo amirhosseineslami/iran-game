@@ -153,8 +153,10 @@ export function generateTehranTestFeatures(count: number = 50): GeographicFeatur
       ]
     ];
     
-    const category = i % 3 === 0 ? 'buildable' : i % 3 === 1 ? 'restricted' : 'non_buildable';
-    const buildability = i % 3 === 0 ? 'buildable' : i % 3 === 1 ? 'restricted' : 'non_buildable';
+    const category: GeographicFeature["category"] =
+      i % 3 === 0 ? "buildable" : i % 3 === 1 ? "restricted" : "non_buildable";
+    const buildability: GeographicFeature["buildability"] =
+      i % 3 === 0 ? "buildable" : i % 3 === 1 ? "restricted" : "non_buildable";
     
     features.push({
       id: `geo-tehran-${i}`,
@@ -165,8 +167,8 @@ export function generateTehranTestFeatures(count: number = 50): GeographicFeatur
       centroid: [lng + size / 2, lat + size / 2],
       boundingBox: [lng, lat, lng + size, lat + size],
       area: size * size * 111320 * 111320 * Math.cos(35.7 * Math.PI / 180),
-      category: category as any,
-      buildability: buildability as any,
+      category,
+      buildability,
       confidence: 0.7 + Math.random() * 0.3,
       source: 'test',
       importTimestamp: now,

@@ -55,9 +55,12 @@ describe("locationQuality — isValid", () => {
 
   it("returns false for stale timestamp", () => {
     const pos = makePosition({ accuracy: 10 });
-    // Override timestamp to be old
-    (pos as any).timestamp = Date.now() - 120_000;
-    expect(isValid(pos)).toBe(false);
+    // Build a stale-position variant (GeolocationPosition.timestamp is readonly)
+    const stalePos: GeolocationPosition = {
+      ...pos,
+      timestamp: Date.now() - 120_000,
+    };
+    expect(isValid(stalePos)).toBe(false);
   });
 
   it("returns false for NaN coordinates", () => {

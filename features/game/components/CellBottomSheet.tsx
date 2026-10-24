@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import type { GameCell } from "@/features/world/types/gameCell";
 import { X, MapPin, CheckCircle, Shield, Sparkles } from "lucide-react";
@@ -25,20 +25,30 @@ export default function CellBottomSheet({
   const t = useTranslations("Game");
   const [justClaimed, setJustClaimed] = useState(false);
   const [showXpGain, setShowXpGain] = useState(false);
+  const [prevStatus, setPrevStatus] = useState(cell?.status);
 
-  // Detect claim success for animation
-  const wasAvailable = cell?.status === "available";
-  useEffect(() => {
-    if (wasAvailable === false && cell?.status === "claimed" && !claiming) {
+  // Render-time adjustment (React-sanctioned): when a cell flips from
+  // available -> claimed (and we're not mid-claim), trigger the celebration.
+  if (prevStatus !== cell?.status) {
+    setPrevStatus(cell?.status);
+    if (
+      prevStatus === "available" &&
+      cell?.status === "claimed" &&
+      !claiming
+    ) {
       setJustClaimed(true);
       setShowXpGain(true);
-      const timer = setTimeout(() => {
-        setJustClaimed(false);
-        setShowXpGain(false);
-      }, 2000);
-      return () => clearTimeout(timer);
     }
-  }, [cell?.status, wasAvailable, claiming]);
+  }
+
+  useEffect(() => {
+    if (!justClaimed) return;
+    const timer = setTimeout(() => {
+      setJustClaimed(false);
+      setShowXpGain(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [justClaimed]);
 
   if (!cell) return null;
 

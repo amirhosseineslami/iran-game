@@ -34,7 +34,9 @@ describe("geographyUtils — validatePolygon", () => {
 
   it("returns false for non-numeric coordinates", () => {
     const polygon = [[["a", 0], [1, 0], [1, 1], ["a", 0]]];
-    expect(validatePolygon(polygon as any)).toBe(false);
+    // Intentionally malformed input (string coords) — cast through unknown to
+    // exercise the runtime guard without widening to `any`.
+    expect(validatePolygon(polygon as unknown as number[][][])).toBe(false);
   });
 });
 

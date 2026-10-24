@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { MapPin, Shield, Sparkles } from "lucide-react";
 
@@ -10,15 +10,10 @@ interface OnboardingOverlayProps {
 
 export default function OnboardingOverlay({ onDismiss }: OnboardingOverlayProps) {
   const t = useTranslations("Game");
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    // Check if this is the first visit
-    const hasSeenOnboarding = localStorage.getItem("iran-game-onboarded");
-    if (!hasSeenOnboarding) {
-      setVisible(true);
-    }
-  }, []);
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("iran-game-onboarded") === null;
+  });
 
   const handleDismiss = () => {
     localStorage.setItem("iran-game-onboarded", "true");
