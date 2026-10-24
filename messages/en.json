@@ -15,6 +15,7 @@
     "location": "Player Location",
     "gettingLocation": "Getting your location...",
     "locationActive": "Location is active",
+    "mockLocation": "Demo location (Tehran)",
     "accuracy": "GPS accuracy",
     "refreshLocation": "Refresh location",
     "loading": "Loading...",
@@ -61,6 +62,22 @@
     "onboardingStep1": "Explore the map to find available territory",
     "onboardingStep2": "Claim territory to expand your domain",
     "onboardingStep3": "Earn XP and level up as you grow",
-    "onboardingCta": "Start Exploring"
+    "onboardingCta": "Start Exploring",
+    "quests": "Quests",
+    "questsTitle": "Missions",
+    "questsSubtitle": "Complete missions to earn XP",
+    "questActive": "Active",
+    "questAvailable": "Available",
+    "questCompleted": "Completed",
+    "questClaimReward": "Claim Reward",
+    "questRewardClaimed": "Reward claimed",
+    "questSetActive": "Track",
+    "questTracking": "Tracking",
+    "questProgress": "{current} / {target}",
+    "questComplete": "Quest complete!",
+    "questNoActive": "No tracked quest yet — open a quest to track it.",
+    "questEmpty": "No quests here yet.",
+    "locationActive": "Location active",
+    "mockLocation": "Demo (Tehran)"
   }
 }

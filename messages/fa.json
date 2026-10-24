@@ -15,6 +15,7 @@
     "location": "موقعیت بازیکن",
     "gettingLocation": "در حال دریافت موقعیت...",
     "locationActive": "موقعیت مکانی فعال است",
+    "mockLocation": "موقعیت نمایشی (تهران)",
     "accuracy": "دقت GPS",
     "refreshLocation": "بهروزرسانی موقعیت",
     "loading": "در حال دریافت...",
@@ -61,6 +62,22 @@
     "onboardingStep1": "نقشه را کاوش کنید تا قلمرو موجود را پیدا کنید",
     "onboardingStep2": "قلمرو را تصاحب کنید تا قلمرو خود را گسترش دهید",
     "onboardingStep3": "با رشد خود، تجربه کسب کنید و سطح بالا بروید",
-    "onboardingCta": "شروع کاوش"
+    "onboardingCta": "شروع کاوش",
+    "quests": "ماموریت‌ها",
+    "questsTitle": "ماموریت‌ها",
+    "questsSubtitle": "ماموریت‌ها را کامل کنید و تجربه بگیرید",
+    "questActive": "فعال",
+    "questAvailable": "در دسترس",
+    "questCompleted": "تکمیل‌شده",
+    "questClaimReward": "دریافت پاداش",
+    "questRewardClaimed": "پاداش دریافت شد",
+    "questSetActive": "دنبال کن",
+    "questTracking": "در حال دنبال",
+    "questProgress": "{current} از {target}",
+    "questComplete": "ماموریت کامل شد!",
+    "questNoActive": "هنوز ماموریتی دنبال نمی‌شود — یک ماموریت را باز کنید.",
+    "questEmpty": "هنوز ماموریتی اینجا نیست.",
+    "locationActive": "موقعیت مکانی فعال است",
+    "mockLocation": "موقعیت نمایشی (تهران)"
   }
 }

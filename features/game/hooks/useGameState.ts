@@ -23,20 +23,34 @@ export function useGameState() {
   const refreshState = useGameStore((s) => s.refreshState);
 
   // One-shot player init + opportunistic geolocation.
-  // Geolocation never gates the game: failure is swallowed by design.
+  // Geolocation never gates the game: failure is swallowed by design and
+  // falls back to a Tehran mock location so the player marker still renders
+  // (useful in Iran where browser GPS is unavailable/times out).
   useEffect(() => {
     initPlayer();
 
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    const setMock = () =>
+      setLocation({
+        latitude: 35.6892,
+        longitude: 51.389,
+        isMock: true,
+      });
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setMock();
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       (pos) =>
         setLocation({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
         }),
       () => {
         /* location is optional; failure must not affect game loading */
+        setMock();
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );

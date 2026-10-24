@@ -4,7 +4,7 @@ import { calculateProgression, calculateClaimXp } from "@/features/game/services
 import {
   initializeQuests,
   processGameEvent,
-  claimQuestReward,
+  claimQuestReward as awardQuestReward,
   type QuestState,
 } from "@/features/game/services/quests";
 
@@ -18,6 +18,8 @@ interface GameStats {
 interface PlayerLocation {
   latitude: number;
   longitude: number;
+  accuracy?: number;
+  isMock?: boolean;
 }
 
 interface GameState {
@@ -36,6 +38,10 @@ interface GameState {
   xp: number;
   progression: ReturnType<typeof calculateProgression>;
   questState: QuestState;
+  /** Distinct cells the player has inspected (select = explore). */
+  exploredCellIds: string[];
+  /** Quest ids that completed but have not been shown to the player yet. */
+  pendingQuestToasts: string[];
 
   initPlayer: () => void;
   loadCells: (cells: GameCell[]) => void;
@@ -47,6 +53,11 @@ interface GameState {
   setClaimError: (error: string | null) => void;
   setLocation: (location: PlayerLocation) => void;
   addPlayerClaim: (cellId: string) => void;
+  setActiveQuest: (questId: string | null) => void;
+  /** Awards XP for a completed quest; returns XP gained (0 if not claimable). */
+  claimQuestReward: (questId: string) => number;
+  /** Drains pending completion notifications (UI consumes them as toasts). */
+  consumeQuestToasts: () => string[];
 }
 
 function getOrCreatePlayerId(): string {
@@ -77,6 +88,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   xp: 0,
   progression: calculateProgression(0, 0),
   questState: initializeQuests(),
+  exploredCellIds: [],
+  pendingQuestToasts: [],
 
   initPlayer: () => {
     const playerId = getOrCreatePlayerId();
@@ -118,11 +131,58 @@ export const useGameStore = create<GameState>((set, get) => ({
   setLoadError: (error) =>
     set({ loading: false, loadError: error ?? "cells_load_failed" }),
 
-  selectCell: (cellId) => set({ selectedCellId: cellId, claimError: null }),
+  selectCell: (cellId) => {
+    const state = get();
+    // Inspecting a cell counts as exploration for quests.
+    let exploredCellIds = state.exploredCellIds;
+    let questState = state.questState;
+    let pendingQuestToasts = state.pendingQuestToasts;
+    if (cellId && !exploredCellIds.includes(cellId)) {
+      exploredCellIds = [...exploredCellIds, cellId];
+      const result = processGameEvent(questState, {
+        type: "explore",
+        value: exploredCellIds.length,
+      });
+      questState = result.state;
+      pendingQuestToasts = [...pendingQuestToasts, ...result.newlyCompleted];
+    }
+    set({
+      selectedCellId: cellId,
+      claimError: null,
+      exploredCellIds,
+      questState,
+      pendingQuestToasts,
+    });
+  },
   setClaimError: (error) => set({ claimError: error }),
   setLocation: (location) => set({ playerLocation: location }),
   addPlayerClaim: (cellId) =>
     set((state) => ({ playerClaims: [...state.playerClaims, cellId] })),
+
+  setActiveQuest: (questId) => {
+    set((state) => ({ questState: { ...state.questState, activeQuestId: questId } }));
+  },
+
+  claimQuestReward: (questId) => {
+    const state = get();
+    const quest = state.questState.quests.find((q) => q.questId === questId);
+    // Only completed, unclaimed quests can pay out — no double rewards.
+    if (!quest || !quest.completed || quest.claimed) return 0;
+    const result = awardQuestReward(state.questState, questId);
+    const newXp = state.xp + result.xpReward;
+    set({
+      questState: result.state,
+      xp: newXp,
+      progression: calculateProgression(newXp, state.ownedCount),
+    });
+    return result.xpReward;
+  },
+
+  consumeQuestToasts: () => {
+    const pending = get().pendingQuestToasts;
+    if (pending.length > 0) set({ pendingQuestToasts: [] });
+    return pending;
+  },
 
   claimCell: async (cellId) => {
     const state = get();
@@ -164,14 +224,26 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Calculate XP and progression
       const { xp: xpGained } = calculateClaimXp(ownedCount, cell.buildability);
-      const newXp = get().xp + xpGained;
+      const baseXp = get().xp;
+      const newXp = baseXp + xpGained;
       const progression = calculateProgression(newXp, ownedCount);
 
-      // Update quests
-      const { state: newQuestState } = processGameEvent(
-        get().questState,
-        { type: "claim", value: ownedCount }
-      );
+      // Update quests: claims feed claim quests; level changes feed level quests.
+      const oldLevel = get().progression.level;
+      const questResult = processGameEvent(get().questState, {
+        type: "claim",
+        value: ownedCount,
+      });
+      let questState = questResult.state;
+      let pendingQuestToasts = [...get().pendingQuestToasts, ...questResult.newlyCompleted];
+      if (progression.level > oldLevel) {
+        const levelResult = processGameEvent(questState, {
+          type: "level_up",
+          value: progression.level,
+        });
+        questState = levelResult.state;
+        pendingQuestToasts = [...pendingQuestToasts, ...levelResult.newlyCompleted];
+      }
 
       set({
         cells: updatedCells,
@@ -182,7 +254,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         playerClaims: [...get().playerClaims, cellId],
         xp: newXp,
         progression,
-        questState: newQuestState,
+        questState,
+        pendingQuestToasts,
       });
     } catch {
       set({ claimError: "claim_network_error", claiming: false });
@@ -226,6 +299,8 @@ export function useGame() {
   const xp = useGameStore((s) => s.xp);
   const progression = useGameStore((s) => s.progression);
   const questState = useGameStore((s) => s.questState);
+  const exploredCellIds = useGameStore((s) => s.exploredCellIds);
+  const pendingQuestToasts = useGameStore((s) => s.pendingQuestToasts);
 
   const selectedCell = cells.find((c) => c.id === selectedCellId) ?? null;
 
@@ -245,11 +320,16 @@ export function useGame() {
     xp,
     progression,
     questState,
+    exploredCellIds,
+    pendingQuestToasts,
     selectCell: (id: string | null) => useGameStore.getState().selectCell(id),
     claimCell: (id: string) => useGameStore.getState().claimCell(id),
     refreshState: () => useGameStore.getState().refreshState(),
     initPlayer: () => useGameStore.getState().initPlayer(),
     setLocation: (loc: PlayerLocation) => useGameStore.getState().setLocation(loc),
     addPlayerClaim: (id: string) => useGameStore.getState().addPlayerClaim(id),
+    setActiveQuest: (id: string | null) => useGameStore.getState().setActiveQuest(id),
+    claimQuestReward: (id: string) => useGameStore.getState().claimQuestReward(id),
+    consumeQuestToasts: () => useGameStore.getState().consumeQuestToasts(),
   };
 }

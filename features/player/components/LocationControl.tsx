@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { usePlayerLocation } from "../hooks/usePlayerLocation";
-import { MapPin, RefreshCw, AlertCircle } from "lucide-react";
+import { RefreshCw, AlertCircle } from "lucide-react";
 
 export default function LocationControl() {
   const t = useTranslations("Player");
@@ -29,7 +29,9 @@ export default function LocationControl() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] text-gray-400 uppercase tracking-wider">{t("location")}</div>
-                <div className="text-xs text-green-400 font-medium">{t("locationActive")}</div>
+                <div className={`text-xs font-medium ${location.isMock ? "text-amber-300" : "text-green-400"}`}>
+                  {location.isMock ? t("mockLocation") : t("locationActive")}
+                </div>
               </div>
               <button
                 type="button"

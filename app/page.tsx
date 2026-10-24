@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useGame, useGameStore } from "@/features/game/context/GameContext";
 import useGameState from "@/features/game/hooks/useGameState";
 import GameMap from "@/features/map/components/GameMap";
 import CellBottomSheet from "@/features/game/components/CellBottomSheet";
+import QuestPanel from "@/features/game/components/QuestPanel";
+import { getQuestDefinition } from "@/features/game/services/quests";
 import GameHUD from "@/features/game/components/GameHUD";
 import PlayerLayer from "@/features/player/components/PlayerLayer";
-import LocationControl from "@/features/player/components/LocationControl";
 import LanguageSwitcher from "@/features/i18n/components/LanguageSwitcher";
 import GameToast, { type ToastData } from "@/features/game/components/GameToast";
 import OnboardingOverlay from "@/features/game/components/OnboardingOverlay";
@@ -17,7 +18,9 @@ export default function Page() {
   const t = useTranslations("Game");
   const w = useTranslations("World");
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [questsOpen, setQuestsOpen] = useState(false);
   const loadingRef = useRef(false);
+  const shownQuestToastsRef = useRef<Set<string>>(new Set());
 
   // useGameState owns the cell-loading lifecycle and player init.
   useGameState();
@@ -35,7 +38,31 @@ export default function Page() {
     claimCell,
     refreshState,
     playerLocation,
+    questState,
+    pendingQuestToasts,
+    consumeQuestToasts,
   } = useGame();
+
+  // HUD quest button signal.
+  useEffect(() => {
+    const toggle = () => setQuestsOpen((v) => !v);
+    window.addEventListener("iran-game:toggle-quests", toggle);
+    return () => window.removeEventListener("iran-game:toggle-quests", toggle);
+  }, []);
+
+  // Surface quest completions as toasts (once each, even across renders).
+  useEffect(() => {
+    if (pendingQuestToasts.length === 0) return;
+    const fresh = consumeQuestToasts().filter((id) => {
+      if (shownQuestToastsRef.current.has(id)) return false;
+      shownQuestToastsRef.current.add(id);
+      return true;
+    });
+    if (fresh.length > 0) {
+      const reward = getQuestDefinition(fresh[0])?.xpReward ?? 0;
+      setToast({ message: `${t("questComplete")} +${reward} XP`, type: "success" });
+    }
+  }, [pendingQuestToasts, consumeQuestToasts, t]);
 
   const handleCellClick = (cellId: string) => {
     selectCell(selectedCellId === cellId ? null : cellId);
@@ -94,11 +121,9 @@ export default function Page() {
       {/* Top HUD */}
       <GameHUD />
 
-      {/* Player marker layer */}
+      {/* Player marker layer (includes the location/GPS pill) */}
       <PlayerLayer />
-
-      {/* GPS status pill (bottom-center) */}
-      <LocationControl />
+      {/* Location bar added by PlayerLayer when a location is known */}
 
       {/* Language switcher (top-right, small) */}
       <LanguageSwitcher />
@@ -111,6 +136,16 @@ export default function Page() {
         claimError={claimError}
         onClaim={handleClaim}
         onClose={() => selectCell(null)}
+      />
+
+      {/* Quest panel */}
+      <QuestPanel
+        open={questsOpen}
+        onClose={() => setQuestsOpen(false)}
+        quests={questState.quests}
+        activeQuestId={questState.activeQuestId}
+        onSetActive={(id) => useGameStore.getState().setActiveQuest(id)}
+        onClaimReward={(id) => useGameStore.getState().claimQuestReward(id)}
       />
 
       {/* Toast notification */}
