@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
 /**
+ * Pure game-logic tests: pin the deterministic in-memory backend so these
+ * stay isolated from the shared PostgreSQL database (parallel vitest workers
+ * would otherwise interleave claims on the same DB). The real Postgres path
+ * is covered by tests/persistence.test.ts (backend contract suite).
+ */
+process.env.IRAN_GAME_BACKEND = "memory";
+
+/**
  * API integration tests for /api/cells and /api/claims.
  * These tests run against the in-memory store directly (no HTTP server needed).
  */

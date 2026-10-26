@@ -33,6 +33,22 @@ export function redactUrl(url: string): string {
 }
 
 async function initBackend(): Promise<BackendState> {
+  // Explicit override: tests that exercise pure game logic pin the
+  // deterministic in-memory backend so they stay isolated from the shared
+  // PostgreSQL database (parallel vitest workers). Production never sets
+  // this, so the auto-selection rules below still apply.
+  const override = process.env.IRAN_GAME_BACKEND?.toLowerCase();
+  if (override === "memory") {
+    console.info(
+      "[persistence] FORCED in-memory backend (IRAN_GAME_BACKEND=memory)"
+    );
+    return {
+      backend: new MemoryCellBackend(),
+      mode: "memory",
+      detail: "forced memory (IRAN_GAME_BACKEND=memory)",
+    };
+  }
+
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.warn(

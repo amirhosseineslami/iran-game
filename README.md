@@ -68,6 +68,65 @@ never silent.
 - `DELETE /api/claims` — release a cell you own
 - `GET /api/health` — persistence/diagnostics status
 
+## Running with Postgres
+
+The game persists claims in PostgreSQL (production path) and transparently
+falls back to an in-memory store when no database is available (e.g. a
+dev machine without Postgres). The two modes are never silent — the active
+mode is always visible in `GET /api/health`.
+
+### Setup
+
+1. Install/start PostgreSQL (e.g. `sudo apt install postgresql` + start the
+   service) and create a database:
+
+   ```bash
+   createdb iran_game
+   ```
+
+2. Configure `.env.local` (already git-ignored). At minimum:
+
+   ```env
+   DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/iran_game
+   ```
+
+   An optional `TEST_DATABASE_URL` may be set to point the backend-contract
+   test suite at a separate schema.
+
+3. Apply migrations and seed the world grid:
+
+   ```bash
+   npm run db:setup
+   ```
+
+   This creates the database if missing and applies `scripts/migrations/*.sql`
+   idempotently (tracked via `schema_migrations`).
+
+### How the backend is selected
+
+- `DATABASE_URL` set **and reachable** → `mode: "postgres"` (claims persist).
+- `DATABASE_URL` set but **unreachable** → `mode: "memory-fallback"`, logged
+  as an ERROR (claims are volatile).
+- `DATABASE_URL` **not set** → `mode: "memory"`, logged as a WARNING.
+
+Check which mode is live at any time:
+
+```bash
+curl localhost:3000/api/health
+```
+
+### Env loading
+
+- Next.js loads `.env.local` automatically for `npm run dev` / `npm run build`.
+- Vitest loads `.env.local` via `vitest.config.ts` so `DATABASE_URL` and
+  `TEST_DATABASE_URL` are visible to tests.
+- Standalone Node scripts (`scripts/setup-db.mjs`) read `.env.local` directly.
+
+Pure game-logic unit tests (`tests/api.test.ts`, `tests/store.test.ts`) pin the
+deterministic in-memory backend (`IRAN_GAME_BACKEND=memory`) so they stay
+isolated from a shared database; the real Postgres path is exercised by
+`tests/persistence.test.ts` (backend contract suite).
+
 ## Tests
 
 ```bash

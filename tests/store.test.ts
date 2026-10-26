@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
+
+/** See tests/api.test.ts — pure logic tests pin the in-memory backend. */
+process.env.IRAN_GAME_BACKEND = "memory";
+
 import {
   getAllCells,
   getCellById,
